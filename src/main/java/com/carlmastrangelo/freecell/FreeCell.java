@@ -1,88 +1,22 @@
 package com.carlmastrangelo.freecell;
 
+import static com.carlmastrangelo.freecell.Card.ALL_CARDS;
+import static com.carlmastrangelo.freecell.Card.CARDS;
+import static com.carlmastrangelo.freecell.Card.RANKS;
+
 import java.util.Arrays;
 import java.util.Random;
 import java.util.random.RandomGenerator;
 
-public class FreeCell {
+public final class FreeCell {
 
-  private enum Color {
-    BLACK,
-    RED;
-  }
-
-  private enum Suit {
-    CLUBS('\u2667', Color.BLACK),
-    DIAMONDS('\u2662', Color.RED),
-    HEARTS('\u2661', Color.RED),
-    SPADES('\u2664', Color.BLACK);
-
-    final char symbol;
-    final Color color;
-
-    Suit(char symbol, Color color) {
-      this.symbol = symbol;
-      this.color = color;
-    }
-  }
-
-  private enum Rank {
-    ACE(1, 'A'),
-    TWO(2, '2'),
-    THREE(3, '3'),
-    FOUR(4, '4'),
-    FIVE(5, '5'),
-    SIX(6, '6'),
-    SEVEN(7, '7'),
-    EIGHT(8, '8'),
-    NINE(9, '9'),
-    TEN(10, 'X'),
-    JACK(11, 'J'),
-    QUEEN(12, 'Q'),
-    KING(13, 'K'),
-    ;
-
-    final int num;
-    final char letter;
-
-    Rank(int num, char letter) {
-      this.num = num;
-      this.letter = letter;
-    }
-  }
-
-  record Card(Suit suit, Rank rank) {
-    @Override
-    public String toString() {
-      return "" + suit.symbol + rank.letter;
-    }
-  }
-
-  static final int RANKS = 13;
-  static final int SUITS = 4;
-  static final int CARDS = 52;
-  static final int COLS = 8;
+  private static final int COLS = 8;
   private static final int ROWS = CARDS / COLS + (CARDS % COLS > 0 ? 1 : 0) + (RANKS - 1);
-
-  private static final Suit[] ALL_SUITS = Suit.values();
-  private static final Rank[] ALL_RANKS = Rank.values();
-  private static final Card[] ALL_CARDS = new Card[RANKS * SUITS];
-
-  static {
-    assert RANKS == ALL_RANKS.length;
-    assert SUITS == ALL_SUITS.length;
-    int i = 0;
-    for (Suit suit : ALL_SUITS) {
-      for (Rank rank : ALL_RANKS) {
-        ALL_CARDS[i++] = new Card(suit, rank);
-      }
-    }
-  }
 
   private final Card[][] tableau;
   private final int[] tableauIdx;
 
-  private final Card[] homeCells = new Card[SUITS];
+  private final Card[] homeCells = new Card[Card.SUITS];
   private final Card[] freeCells = new Card[4];
 
   private FreeCell() {
@@ -132,9 +66,9 @@ public class FreeCell {
     Card card = peek(tableauCol);
     Card homeCell = homeCells[card.suit().ordinal()];
     if (homeCell == null) {
-      return card.rank() == Rank.ACE;
+      return card.rank() == Card.Rank.ACE;
     }
-    return homeCell.rank().num == card.rank().num - 1;
+    return homeCell.rank().num() == card.rank().num() - 1;
   }
 
   boolean canMoveFree(int freeCol) {
