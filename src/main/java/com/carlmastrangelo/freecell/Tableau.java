@@ -10,18 +10,35 @@ final class Tableau {
   static final int ROWS = CARDS / COLS + (CARDS % COLS > 0 ? 1 : 0) + (RANKS - 1);
 
   private final Card[][] cols;
+
   /**
    * Points to the top card in a column, or else -1.
    */
   private final int[] colTopIdx;
 
   Tableau() {
-    this.cols = new Card[COLS][];
-    for (int colIdx = 0; colIdx < cols.length; colIdx++) {
-      cols[colIdx] = new Card[ROWS];
+    this(initialCols(COLS, ROWS), initialColTopIdx(COLS));
+  }
+
+  private Tableau(Card[][] cols, int[] colTopIdx) {
+    this.cols = cols;
+    this.colTopIdx = colTopIdx;
+  }
+
+  void reset() {
+    for (Card[] col : cols) {
+      Arrays.fill(col, null);
     }
-    this.colTopIdx = new int[COLS];
     Arrays.fill(colTopIdx, -1);
+  }
+
+  Tableau copy() {
+    Card[][] newCols = cols.clone();
+    for (int i = 0; i < newCols.length; i++) {
+      newCols[i] = newCols[i].clone();
+    }
+    int[] newColTopIdx = colTopIdx.clone();
+    return new Tableau(newCols, newColTopIdx);
   }
 
   void push(Card card, int col) {
@@ -35,8 +52,14 @@ final class Tableau {
     return card;
   }
 
+  /**
+   * Returns the top most card in the column, or else {@code null}.
+   */
   Card peek(int col) {
-    return cols[col][cardsInCol(col) - 1];
+    if (colTopIdx[col] == -1) {
+      return null;
+    }
+    return cols[col][colTopIdx[col]];
   }
 
   /**
@@ -64,5 +87,34 @@ final class Tableau {
       }
       sb.append('\n');
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Tableau tableau = (Tableau) o;
+    return Arrays.deepEquals(cols, tableau.cols) && Arrays.equals(colTopIdx, tableau.colTopIdx);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Arrays.deepHashCode(cols);
+    result = 31 * result + Arrays.hashCode(colTopIdx);
+    return result;
+  }
+
+  private static Card[][] initialCols(int colCount, int rowCount) {
+    Card[][] cols = new Card[colCount][];
+    for (int colIdx = 0; colIdx < cols.length; colIdx++) {
+      cols[colIdx] = new Card[rowCount];
+    }
+    return cols;
+  }
+
+  private static int[] initialColTopIdx(int colCount) {
+    int[] colTopIdx = new int[colCount];
+    Arrays.fill(colTopIdx, -1);
+    return colTopIdx;
   }
 }
