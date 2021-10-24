@@ -1,69 +1,43 @@
 package com.carlmastrangelo.freecell;
 
 import static com.carlmastrangelo.freecell.Card.ALL_CARDS;
-import static com.carlmastrangelo.freecell.Card.CARDS;
-import static com.carlmastrangelo.freecell.Card.RANKS;
 
-import java.util.Arrays;
 import java.util.Random;
 import java.util.random.RandomGenerator;
 
 public final class FreeCell {
 
-  private static final int COLS = 8;
-  private static final int ROWS = CARDS / COLS + (CARDS % COLS > 0 ? 1 : 0) + (RANKS - 1);
-
-  private final Card[][] tableau;
-  private final int[] tableauIdx;
-
   private final Card[] homeCells = new Card[Card.SUITS];
-  private final Card[] freeCells = new Card[4];
+  private final FreeCells freeCells = new FreeCells();
+  private final Tableau tableau = new Tableau();
 
   private FreeCell() {
-    this.tableau = new Card[8][];
-    this.tableauIdx = new int[8];
-    Arrays.fill(tableauIdx, -1);
   }
 
   void init(RandomGenerator rng) {
-    Card[] cards = Arrays.copyOf(ALL_CARDS, ALL_CARDS.length);
+    Card[] cards = ALL_CARDS.clone();
     shuffle(cards, rng);
-    for (int i = 0; i < tableau.length; i++) {
-      tableau[i] = new Card[ROWS];
-    }
     int col = 0;
     for (Card card : cards) {
-      push(card, col++);
-      if (col == COLS) {
+      tableau.push(card, col++);
+      if (col == Tableau.COLS) {
         col = 0;
       }
     }
   }
 
-  private void push(Card card, int col) {
-    tableau[col][++tableauIdx[col]] = card;
-  }
 
-  private Card pop(int col) {
-    Card card = peek(col);
-    tableau[col][tableauIdx[col]--] = null;
-    return card;
-  }
-
-  private Card peek(int col) {
-    return tableau[col][tableauIdx[col]];
-  }
 
   void moveHome(int tableauCol) {
     if (!canMoveHome(tableauCol)) {
       throw new IllegalArgumentException("Can't move card");
     }
-    Card card = pop(tableauCol);
+    Card card = tableau.pop(tableauCol);
     homeCells[card.suit().ordinal()] = card;
   }
 
   boolean canMoveHome(int tableauCol) {
-    Card card = peek(tableauCol);
+    Card card = tableau.peek(tableauCol);
     Card homeCell = homeCells[card.suit().ordinal()];
     if (homeCell == null) {
       return card.rank() == Card.Rank.ACE;
@@ -72,10 +46,10 @@ public final class FreeCell {
   }
 
   boolean canMoveFree(int freeCol) {
-    return freeCells[freeCol] == null;
+    return freeCells.peek(freeCol) != null;
   }
 
-  void moveFree(int tableauCol, int freeCol) {
+  void moveToFree(int tableauCol, int freeCol) {
     if (!canMoveFree(freeCol)) {
       throw new IllegalArgumentException();
     }
@@ -94,32 +68,9 @@ public final class FreeCell {
       }
     }
     sb.append("||");
-    for (Card card : freeCells) {
-      sb.append("  ");
-      if (card != null) {
-        sb.append(card);
-      } else {
-        sb.append("  ");
-      }
-    }
+    freeCells.toString(sb);
     sb.append("\n\n");
-    for (int i = 0; i < ROWS; i++) {
-      boolean cardOnRow = false;
-      for (int col = 0; col < tableau.length; col++) {
-        sb.append("  ");
-        if (i <= tableauIdx[col]) {
-          sb.append(tableau[col][i]);
-          cardOnRow = true;
-        } else {
-          sb.append("  ");
-        }
-      }
-      if (!cardOnRow) {
-        sb.delete(sb.lastIndexOf("\n"), sb.length());
-        break;
-      }
-      sb.append('\n');
-    }
+    tableau.toString(sb);
     return sb.toString();
   }
 
@@ -142,7 +93,7 @@ public final class FreeCell {
     boolean done;
     do {
       done = true;
-      for (int i = 0; i < FreeCell.COLS; i++) {
+      for (int i = 0; i < Tableau.COLS; i++) {
         if (freecell.canMoveHome(i)) {
           done = false;
           freecell.moveHome(i);
