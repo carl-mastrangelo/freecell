@@ -1,7 +1,7 @@
 package com.carlmastrangelo.freecell.player;
 
 import com.carlmastrangelo.freecell.Card;
-import com.carlmastrangelo.freecell.FreeCell;
+import com.carlmastrangelo.freecell.MutableFreeCell;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,7 +22,7 @@ public final class GamePlayer {
   }
 
   private final AtomicLong gamesSeen = new AtomicLong(1);
-  private final AtomicReference<FreeCell> lastGame = new AtomicReference<>();
+  private final AtomicReference<MutableFreeCell> lastGame = new AtomicReference<>();
 
   private void play() {
     ForkJoinPool.commonPool().submit(new Runnable() {
@@ -51,7 +51,7 @@ public final class GamePlayer {
     });
 
 
-    FreeCell game = new FreeCell();
+    MutableFreeCell game = new MutableFreeCell();
 
     RandomGenerator rng = new SplittableRandom(10);
     game.deal(rng);
@@ -73,10 +73,10 @@ public final class GamePlayer {
         parse("2D", "2H"));*/
     System.out.println(game);
 
-    Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
+    Set<MutableFreeCell> seen = Collections.newSetFromMap(new HashMap<>());
     seen.add(game);
 
-    record GameMoves(FreeCell game, List<Move> moves){}
+    record GameMoves(MutableFreeCell game, List<Move> moves){}
     Deque<GameMoves> gameMoves = new ArrayDeque<>();
     gameMoves.addLast(new GameMoves(game, moves(game)));
 
@@ -86,7 +86,7 @@ public final class GamePlayer {
       lastGame.set(gm.game());
       List<Move> moves = gm.moves();
       for (Move move : gm.moves()) {
-        FreeCell newGame = gm.game().copy();
+        MutableFreeCell newGame = gm.game().copy();
         move.play(newGame);
         boolean better = false;
         if (newGame.score() > top) {
@@ -112,9 +112,9 @@ public final class GamePlayer {
     throw new RuntimeException("no moves left");
   }
 
-  private static List<Move> moves(FreeCell game) {
+  private static List<Move> moves(MutableFreeCell game) {
     List<Move> moves = new ArrayList<>();
-    for (int srcTableauCol = 0; srcTableauCol < FreeCell.TABLEAU_COLUMNS; srcTableauCol++) {
+    for (int srcTableauCol = 0; srcTableauCol < MutableFreeCell.TABLEAU_COLUMNS; srcTableauCol++) {
       Card srcCard = game.peekTableau(srcTableauCol);
       if (srcCard == null) {
         continue;
@@ -146,13 +146,13 @@ public final class GamePlayer {
       if (game.openFreeCell()) {
         moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
-      for (int dstTableauCol = srcTableauCol + 1; dstTableauCol < FreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
+      for (int dstTableauCol = srcTableauCol + 1; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
         if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
           moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
         }
       }
     }
-    for (int freeCol = 0; freeCol < FreeCell.FREE_CELL_COLUMNS; freeCol++) {
+    for (int freeCol = 0; freeCol < MutableFreeCell.FREE_CELL_COLUMNS; freeCol++) {
       if (game.peekFreeCell(freeCol) == null) {
         continue;
       }
@@ -181,7 +181,7 @@ public final class GamePlayer {
           return List.of(moves.get(moves.size() - 1));
         }
       }
-      for (int dstTableauCol = 0; dstTableauCol < FreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
+      for (int dstTableauCol = 0; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
         if (game.canMoveToTableauFromFreeCell(dstTableauCol, freeCol)) {
           moves.add(new Move.MoveToTableauFromFreeCell(dstTableauCol, freeCol));
         }
