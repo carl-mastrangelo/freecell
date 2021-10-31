@@ -56,20 +56,20 @@ public final class GamePlayer {
     RandomGenerator rng = new SplittableRandom(10);
     //game.deal(rng);
     game.deal(parse(
-        "JD", "KD", "7D", "4C", "KH", "QH", "4S", null,
-        "9S", "3D", "5H", "9D", "QC", "JH", "8C", null,
-        "AS", "2S", null, "5C", null, "4H", "QS", null,
-        "2C", null, null, "3H", null, "6S", "XH", null,
-        "KC", null, null, "6D", null, "7C", "XC", null,
-        "5S", null, null, "6H", null, "8H", "3C", null,
-        "XS", null, null, "KS", null, "7S", null, null,
-        "9H", null, null, "QD", null, null, null, null,
-        "8S", null, null, "JC", null, null, null, null,
-        "7H", null, null, "XD", null, null, null, null,
-        "6C", null, null, "9C", null, null, null, null,
-        "5D", null, null, null, null, null, null, null),
-        parse("8D", "4D", "3S", "JS"),
-        parse("2D", "2H", "AC"));
+            "JD", "KD", "7D", "4C", "KH", "QH", "4S", "AC",
+            "9S", "3D", "5H", "9D", "QC", "JH", "8C", "9C",
+            "AS", "2S", null, "5C", null, "4H", "QS", "8D",
+            "2C", null, null, "3H", null, "6S", "XH", "4D",
+            "KC", null, null, "6D", null, "7C", "XC", "3S",
+            "5S", null, null, "6H", null, "8H", "3C", null,
+            "XS", null, null, "KS", null, "7S", null, null,
+            "9H", null, null, "QD", null, null, null, null,
+            "8S", null, null, "JC", null, null, null, null,
+            "7H", null, null, "XD", null, null, null, null,
+            "6C", null, null, null, null, null, null, null,
+            "5D", null, null, null, null, null, null, null),
+        parse("JS"),
+        parse("2D", "2H"));
     System.out.println(game);
 
     Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());

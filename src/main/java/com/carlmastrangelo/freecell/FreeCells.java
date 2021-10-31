@@ -6,7 +6,7 @@ import java.util.Objects;
 final class FreeCells {
 
   static final int NO_FREE_CELL = -1;
-  static final int COLS = 8;
+  static final int COLS = 4;
 
   private final Card[] cells;
 

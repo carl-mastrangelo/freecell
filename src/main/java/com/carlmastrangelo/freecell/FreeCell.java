@@ -67,34 +67,37 @@ public final class FreeCell {
         throw new IllegalArgumentException("Duplicate tableau card " + card);
       }
     }
+    Card[] homeCells = new Card[SUITS];
     for (Card card : homeCellCards) {
       if (card == null) {
         continue;
       }
+      homeCells[card.suit().ordinal()] = card;
       do {
         if (!allCardsSet.remove(card)) {
           throw new IllegalArgumentException("Duplicate tableau card " + card);
         }
         card = card.lowerRank();
-      } while (card != null && card.rank() != Card.Rank.ACE);
+      } while (card != null);
     }
     if (!allCardsSet.isEmpty()) {
       throw new IllegalArgumentException("Not all cards used " + allCardsSet);
     }
 
-    deal(tableauCards.toArray(new Card[0]), freeCellCards.toArray(new Card[0]), homeCellCards.toArray(new Card[0]));
+    deal(tableauCards.toArray(new Card[0]), freeCellCards.toArray(new Card[0]), homeCells);
   }
 
   private void deal(Card[] tableauCards, Card[] freeCellCards, Card[] homeCells) {
     int col = 0;
     for (Card card : tableauCards) {
-      if (card == null) {
-        continue;
-      }
-      tableau.push(card, col++);
+      int dstCol = col++;
       if (col == Tableau.COLS) {
         col = 0;
       }
+      if (card == null) {
+        continue;
+      }
+      tableau.push(card, dstCol);
     }
 
     for (Card card : freeCellCards) {
