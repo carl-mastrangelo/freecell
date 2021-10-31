@@ -5,27 +5,35 @@ import java.util.Objects;
 
 final class FreeCells {
 
-  static final int COLS = 4;
+  static final int NO_FREE_CELL = -1;
+  static final int COLS = 8;
 
   private final Card[] cells;
-  private int free;
 
   FreeCells() {
-    this(new Card[COLS], COLS);
+    this(new Card[COLS]);
   }
 
-  private FreeCells(Card[] cells, int free) {
+  private FreeCells(Card[] cells) {
     this.cells = cells;
-    this.free = free;
   }
 
-  void push(Card card, int col) {
+  void push(Card card) {
     assert card != null;
-    if (cells[col] != null) {
+    if (!freeCell()) {
       throw new IllegalStateException();
     }
-    cells[col] = card;
-    free--;
+    for (int i = 0; i < cells.length; i++) {
+      if (cells[i] == null) {
+        cells[i] = card;
+        return;
+      }
+      if (cells[i].ordinal() < card.ordinal()) {
+        System.arraycopy(cells, i, cells, i + 1, cells.length - i - 1);
+        cells[i] = card;
+        return;
+      }
+    }
   }
 
   Card pop(int col) {
@@ -33,8 +41,8 @@ final class FreeCells {
     if (card == null) {
       throw new IllegalStateException();
     }
-    cells[col] = null;
-    free++;
+    System.arraycopy(cells, col + 1, cells, col, cells.length - col - 1);
+    cells[cells.length - 1] = null;
     return card;
   }
 
@@ -42,25 +50,16 @@ final class FreeCells {
     return cells[col];
   }
 
-  /**
-   * Returns a free cell column, or {@code -1} if there are none.
-   */
-  int freeCell() {
-    for (int i = 0; i < cells.length; i++) {
-      if (cells[i] == null) {
-        return i;
-      }
-    }
-    return -1;
+  boolean freeCell() {
+    return cells[COLS - 1] == null;
   }
 
   void reset() {
     Arrays.fill(cells, null);
-    free = cells.length;
   }
 
   FreeCells copy() {
-    return new FreeCells(cells.clone(), free);
+    return new FreeCells(cells.clone());
   }
 
   @Override

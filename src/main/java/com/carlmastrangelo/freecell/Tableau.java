@@ -1,5 +1,6 @@
 package com.carlmastrangelo.freecell;
 
+import static com.carlmastrangelo.freecell.Card.ALL_CARDS;
 import static com.carlmastrangelo.freecell.Card.CARDS;
 import static com.carlmastrangelo.freecell.Card.RANKS;
 
@@ -9,7 +10,7 @@ final class Tableau {
   static final int COLS = 8;
   static final int ROWS = CARDS / COLS + (CARDS % COLS > 0 ? 1 : 0) + (RANKS - 1);
 
-  private final Card[][] cols;
+  private final byte[][] cols;
 
   /**
    * Points to the top card in a column, or else -1.
@@ -20,20 +21,20 @@ final class Tableau {
     this(initialCols(COLS, ROWS), initialColTopIdx(COLS));
   }
 
-  private Tableau(Card[][] cols, int[] colTopIdx) {
+  private Tableau(byte[][] cols, int[] colTopIdx) {
     this.cols = cols;
     this.colTopIdx = colTopIdx;
   }
 
   void reset() {
-    for (Card[] col : cols) {
-      Arrays.fill(col, null);
+    for (byte[] col : cols) {
+      Arrays.fill(col, (byte) -1);
     }
     Arrays.fill(colTopIdx, -1);
   }
 
   Tableau copy() {
-    Card[][] newCols = cols.clone();
+    byte[][] newCols = cols.clone();
     for (int i = 0; i < newCols.length; i++) {
       newCols[i] = newCols[i].clone();
     }
@@ -43,12 +44,12 @@ final class Tableau {
 
   void push(Card card, int col) {
     assert card != null;
-    cols[col][++colTopIdx[col]] = card;
+    cols[col][++colTopIdx[col]] = (byte)card.ordinal();
   }
 
   Card pop(int col) {
     Card card = peek(col);
-    cols[col][colTopIdx[col]--] = null;
+    cols[col][colTopIdx[col]--] = -1;
     return card;
   }
 
@@ -59,7 +60,7 @@ final class Tableau {
     if (colTopIdx[col] == -1) {
       return null;
     }
-    return cols[col][colTopIdx[col]];
+    return Card.ALL_CARDS[cols[col][colTopIdx[col]]];
   }
 
   /**
@@ -75,7 +76,7 @@ final class Tableau {
       for (int col = 0; col < COLS; col++) {
         sb.append("  ");
         if (i <= colTopIdx[col]) {
-          sb.append(cols[col][i]);
+          sb.append(ALL_CARDS[cols[col][i]]);
           cardOnRow = true;
         } else {
           sb.append("  ");
@@ -104,10 +105,10 @@ final class Tableau {
     return result;
   }
 
-  private static Card[][] initialCols(int colCount, int rowCount) {
-    Card[][] cols = new Card[colCount][];
+  private static byte[][] initialCols(int colCount, int rowCount) {
+    byte[][] cols = new byte[colCount][];
     for (int colIdx = 0; colIdx < cols.length; colIdx++) {
-      cols[colIdx] = new Card[rowCount];
+      cols[colIdx] = new byte[rowCount];
     }
     return cols;
   }

@@ -1,5 +1,11 @@
 package com.carlmastrangelo.freecell;
 
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+
 public enum Card {
   ACE_CLUBS(Rank.ACE, Suit.CLUBS),
   TWO_CLUBS(Rank.TWO, Suit.CLUBS),
@@ -62,6 +68,9 @@ public enum Card {
   static final Rank[] ALL_RANKS = Rank.values();
   static final Card[] ALL_CARDS = Card.values();
 
+  private static final Card[][] SUITS_RANKS;
+  private static final Card[][] RANKS_SUITS;
+
   static final int RANKS = 13;
   static final int SUITS = 4;
   static final int CARDS = 52;
@@ -70,6 +79,24 @@ public enum Card {
     assert RANKS == ALL_RANKS.length;
     assert SUITS == ALL_SUITS.length;
     assert CARDS == ALL_CARDS.length;
+    SUITS_RANKS = new Card[SUITS][];
+    RANKS_SUITS = new Card[RANKS][];
+
+    for (Rank rank : ALL_RANKS) {
+      RANKS_SUITS[rank.ordinal()] = new Card[SUITS];
+    }
+    for (Suit suit : ALL_SUITS) {
+      SUITS_RANKS[suit.ordinal()] = new Card[RANKS];
+      for (Rank rank : ALL_RANKS) {
+        int cardOrdinal = suit.ordinal() * RANKS + rank.ordinal();
+        Card card = ALL_CARDS[cardOrdinal];
+        assert card.rank() == rank;
+        assert card.suit() == suit;
+        assert card.ordinal() == cardOrdinal;
+        SUITS_RANKS[suit.ordinal()][rank.ordinal()] = card;
+        RANKS_SUITS[rank.ordinal()][suit.ordinal()] = card;
+      }
+    }
   }
 
   public enum Rank {
@@ -103,21 +130,39 @@ public enum Card {
     public String symbol() {
       return symbol;
     }
+
+    @Nullable
+    public Rank lower() {
+      if (this == ACE) {
+        return null;
+      }
+      return ALL_RANKS[ordinal() - 1];
+    }
+
+    @Nullable
+    public Rank upper() {
+      if (this == KING) {
+        return null;
+      }
+      return ALL_RANKS[ordinal() + 1];
+    }
   }
 
-  enum Suit {
+  public enum Suit {
 
-    CLUBS('\u2667', Color.BLACK),
-    DIAMONDS('\u2662', Color.RED),
-    HEARTS('\u2661', Color.RED),
-    SPADES('\u2664', Color.BLACK),
+    CLUBS("\u2667", "C", Color.BLACK),
+    DIAMONDS("\u2662", "D", Color.RED),
+    HEARTS("\u2661", "H", Color.RED),
+    SPADES("\u2664", "S", Color.BLACK),
     ;
 
     private final String symbol;
+    private final String altSymbol;
     private final Color color;
 
-    Suit(char symbol, Color color) {
-      this.symbol = String.valueOf(symbol);
+    Suit(String symbol, String altSymbol, Color color) {
+      this.symbol = symbol;
+      this.altSymbol = altSymbol;
       this.color = color;
     }
 
@@ -127,6 +172,22 @@ public enum Card {
 
     public Color color() {
       return color;
+    }
+
+    @Nullable
+    public Suit lower() {
+      if (this == CLUBS) {
+        return null;
+      }
+      return ALL_SUITS[ordinal() - 1];
+    }
+
+    @Nullable
+    public Suit upper() {
+      if (this == SPADES) {
+        return null;
+      }
+      return ALL_SUITS[ordinal() + 1];
     }
   }
 
@@ -142,11 +203,12 @@ public enum Card {
   Card(Rank rank, Suit suit) {
     this.rank = rank;
     this.suit = suit;
+    int rankNum = rank.num() + (rank.num() >= 0xC ? 1 : 0);
     this.symbol = switch (suit) {
-      case CLUBS -> Character.toString(0x1F0D0 + rank.num());
-      case DIAMONDS -> Character.toString(0x1F0C0 + rank.num());
-      case HEARTS -> Character.toString(0x1F0B0 + rank.num());
-      case SPADES -> Character.toString(0x1F0A0 + rank.num());
+      case CLUBS -> Character.toString(0x1F0D0 + rankNum);
+      case DIAMONDS -> Character.toString(0x1F0C0 + rankNum);
+      case HEARTS -> Character.toString(0x1F0B0 + rankNum);
+      case SPADES -> Character.toString(0x1F0A0 + rankNum);
     };
   }
 
@@ -161,5 +223,55 @@ public enum Card {
   @Override
   public String toString() {
     return symbol;
+  }
+
+  @Nullable
+  public Card upperRank() {
+    if (rank().upper() == null) {
+      return null;
+    }
+    return RANKS_SUITS[rank().ordinal() + 1][suit().ordinal()];
+  }
+
+  @Nullable
+  public Card lowerRank() {
+    if (rank().lower() == null) {
+      return null;
+    }
+    return RANKS_SUITS[rank().ordinal() - 1][suit().ordinal()];
+  }
+
+  @Nullable
+  public Card upperSuit() {
+    if (suit().upper() == null) {
+      return null;
+    }
+    return RANKS_SUITS[rank().ordinal()][suit().ordinal() + 1];
+  }
+
+  @Nullable
+  public Card lowerSuit() {
+    if (suit().lower() == null) {
+      return null;
+    }
+    return RANKS_SUITS[rank().ordinal()][suit().ordinal() - 1];
+  }
+
+  public static Card parse(String symbol) {
+
+    Map<String, Card> cards =
+        Arrays.stream(ALL_CARDS).collect(Collectors.toMap(c -> c.rank().symbol() + c.suit().altSymbol, c -> c));
+    Card card = cards.get(symbol.toUpperCase(Locale.ROOT));
+    if (card != null) {
+      return card;
+    }
+    // Hacky, but not called often.
+    Map<String, Card> revCards =
+        Arrays.stream(ALL_CARDS).collect(Collectors.toMap(c -> c.suit().altSymbol + c.rank().symbol() , c -> c));
+    card = revCards.get(symbol.toUpperCase(Locale.ROOT));
+    if (card != null) {
+      return card;
+    }
+    throw new IllegalArgumentException("Unknown cards " + card);
   }
 }

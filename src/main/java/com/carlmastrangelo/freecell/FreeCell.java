@@ -5,16 +5,20 @@ import static com.carlmastrangelo.freecell.Card.ALL_SUITS;
 import static com.carlmastrangelo.freecell.Card.SUITS;
 
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.random.RandomGenerator;
 
 public final class FreeCell {
 
+  public static final int NO_FREE_CELL_IDX = FreeCells.NO_FREE_CELL;
   public static final int FREE_CELL_COLUMNS = FreeCells.COLS;
   public static final int TABLEAU_COLUMNS = Tableau.COLS;
 
-  private static final Card[] EMPTY_FREE_CELLS = new Card[FreeCells.COLS];
+  private static final Card[] EMPTY_FREE_CELLS = new Card[0];
   private static final Card[] EMPTY_HOME_CELLS = new Card[SUITS];
 
   private final Card[] homeCells;
@@ -45,21 +49,56 @@ public final class FreeCell {
     deal(cards, EMPTY_FREE_CELLS, EMPTY_HOME_CELLS);
   }
 
+  public void deal(List<Card> tableauCards, List<Card> freeCellCards, List<Card> homeCellCards) {
+    Set<Card> allCardsSet = new LinkedHashSet<>(Arrays.asList(ALL_CARDS));
+    for (Card card : tableauCards) {
+      if (card == null) {
+        continue;
+      }
+      if (!allCardsSet.remove(card)) {
+        throw new IllegalArgumentException("Duplicate tableau card " + card);
+      }
+    }
+    for (Card card : freeCellCards) {
+      if (card == null) {
+        continue;
+      }
+      if (!allCardsSet.remove(card)) {
+        throw new IllegalArgumentException("Duplicate tableau card " + card);
+      }
+    }
+    for (Card card : homeCellCards) {
+      if (card == null) {
+        continue;
+      }
+      do {
+        if (!allCardsSet.remove(card)) {
+          throw new IllegalArgumentException("Duplicate tableau card " + card);
+        }
+        card = card.lowerRank();
+      } while (card != null && card.rank() != Card.Rank.ACE);
+    }
+    if (!allCardsSet.isEmpty()) {
+      throw new IllegalArgumentException("Not all cards used " + allCardsSet);
+    }
+
+    deal(tableauCards.toArray(new Card[0]), freeCellCards.toArray(new Card[0]), homeCellCards.toArray(new Card[0]));
+  }
+
   private void deal(Card[] tableauCards, Card[] freeCellCards, Card[] homeCells) {
     int col = 0;
     for (Card card : tableauCards) {
+      if (card == null) {
+        continue;
+      }
       tableau.push(card, col++);
       if (col == Tableau.COLS) {
         col = 0;
       }
     }
 
-    assert freeCellCards.length == FreeCells.COLS;
-    for (int freeCellCol = 0; freeCellCol < freeCellCards.length; freeCellCol++) {
-      assert freeCells.peek(freeCellCol) == null : freeCells.peek(freeCellCol);
-      if (freeCellCards[freeCellCol] != null) {
-        freeCells.push(freeCellCards[freeCellCol], freeCellCol);
-      }
+    for (Card card : freeCellCards) {
+      freeCells.push(card);
     }
 
     assert homeCells.length == ALL_SUITS.length;
@@ -111,26 +150,26 @@ public final class FreeCell {
   }
 
   /**
-   * Returns the column of an empty free cell, or else {@code -1}.
+   * Returns if there is an empty free cell.
    */
-  public int openFreeCell() {
+  public boolean openFreeCell() {
     return freeCells.freeCell();
   }
 
   /**
    * Returns if the given freecell column is empty.
    */
-  public boolean canMoveToFreeCell(int freeCol) {
-    return freeCells.peek(freeCol) != null;
+  public boolean canMoveToFreeCell() {
+    return freeCells.freeCell();
   }
 
-  public void moveToFreeCellFromTableau(int freeCol, int tableauCol) {
-    if (!canMoveToFreeCell(freeCol)) {
+  public void moveToFreeCellFromTableau(int tableauCol) {
+    if (!canMoveToFreeCell()) {
       throw new IllegalArgumentException();
     }
 
     Card card = tableau.pop(tableauCol);
-    freeCells.push(card, freeCol);
+    freeCells.push(card);
   }
 
   /**
@@ -138,6 +177,13 @@ public final class FreeCell {
    */
   public Card peekTableau(int tableauCol) {
     return tableau.peek(tableauCol);
+  }
+
+  /**
+   * Returns the card on the freecell column, or {@code null} if there is none.
+   */
+  public Card peekFreeCell(int freeCol) {
+    return freeCells.peek(freeCol);
   }
 
   public void moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
@@ -162,6 +208,20 @@ public final class FreeCell {
   public boolean canMoveToTableauFromFreeCell(int dstTableauCol, int freeCol) {
     Card src = freeCells.peek(freeCol);
     return canMoveToTableau(dstTableauCol, src);
+  }
+
+  public Card topHomeCell(Card.Suit suit) {
+    return homeCells[suit.ordinal()];
+  }
+
+  public int score() {
+    int sum = 0;
+    for (Card card : homeCells) {
+      if (card != null) {
+        sum += card.rank().num();
+      }
+    }
+    return sum;
   }
 
   private boolean canMoveToTableau(int dstTableauCol, Card src) {
@@ -202,7 +262,7 @@ public final class FreeCell {
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(freeCells, tableau);
+    int result = freeCells.hashCode();
     result = 31 * result + Arrays.hashCode(homeCells);
     return result;
   }
