@@ -7,6 +7,7 @@ import static com.carlmastrangelo.freecell.Card.CARDS;
 import static com.carlmastrangelo.freecell.Card.RANKS;
 import static com.carlmastrangelo.freecell.Card.SUITS;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,22 +80,21 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
       cardIds[pos++] = cardId(card);
     }
 
-    int[] tableauTop = new int[Tableau.COLS];
+    int[] tableauRoot = new int[Tableau.COLS];
     int col = 0;
     for (List<Card> column : tableauColumns) {
-      pos++;
+      tableauRoot[col++] = pos++;
       for (Card card : column) {
         if (!allCards.remove(Objects.requireNonNull(card))) {
           throw new IllegalArgumentException("Card already used " + card);
         }
         cardIds[pos++] = cardId(card);
       }
-      tableauTop[col++] = pos - 1;
     }
     if (!allCards.isEmpty()) {
       throw new IllegalArgumentException("Not all cards used " + allCards);
     }
-    return new ForkFreeCell(cardIds, tableauTop);
+    return new ForkFreeCell(cardIds, tableauRoot);
   }
 
   /*
@@ -120,17 +120,17 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   }
 
   private final byte[] cardIds;
-  private final int[] tableauTop;
+  private final int[] tableauRoot;
 
-  private ForkFreeCell(byte[] cardIds, int[] tableauTop) {
+  private ForkFreeCell(byte[] cardIds, int[] tableauRoot) {
     this.cardIds = cardIds;
-    this.tableauTop = tableauTop;
+    this.tableauRoot = tableauRoot;
   }
 
   @Override
   public boolean gameWon() {
     for (int i = 0; i < SUITS; i++) {
-      if (cardIds[i] == EMPTY || rankOrd(cardIds[i]) != Card.Rank.KING.ordinal()) {
+      if (cardIds[i] == EMPTY || rankOrd(cardIds[i]) != Card.Rank.KING_ORD) {
         return false;
       }
     }
@@ -139,26 +139,24 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   @Override
   public ForkFreeCell moveToHomeCellFromTableau(int tableauCol) {
-    int pos = tableauTop[tableauCol];
+    int pos = tabTop(tableauCol);
     byte cardId = cardIds[pos];
     if (!canMoveHome(cardId)) {
       throw new IllegalArgumentException();
     }
-    byte[] newCardIds = new byte[cardIds.length - 1];
-    System.arraycopy(cardIds, 0, newCardIds, 0, pos - 1);
-    System.arraycopy(cardIds, pos, newCardIds, pos, cardIds.length - 1);
-    cardIds[suitOrd(cardId)] = cardId;
-    int[] newTableauTop = tableauTop.clone();
-    for (int col = tableauCol; col < newTableauTop.length; col++) {
-      newTableauTop[col]--;
+    byte[] newCardIds = copyAndRemoveAt(cardIds, pos);
+    newCardIds[suitOrd(cardId)] = cardId;
+    int[] newTableauRoot = tableauRoot.clone();
+    for (int col = tableauCol + 1; col < newTableauRoot.length; col++) {
+      tableauRoot[col]--;
     }
 
-    return new ForkFreeCell(newCardIds, newTableauTop);
+    return new ForkFreeCell(newCardIds, tableauRoot);
   }
 
   private boolean canMoveHome(byte cardId) {
     byte homeCardId;
-    if ((homeCardId = cardIds[suitOrd(cardId)]) == EMPTY && rankOrd(cardId) == Card.Rank.ACE.ordinal()) {
+    if ((homeCardId = cardIds[suitOrd(cardId)]) == EMPTY && rankOrd(cardId) == Card.Rank.ACE_ORD) {
       return true;
     }
     return homeCardId + 1 == cardId;
@@ -166,18 +164,37 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   @Override
   public boolean canMoveToHomeCellFromTableau(int tableauCol) {
-    int pos = tableauTop[tableauCol];
+    // TODO: test if this can be called with empty
+    int pos = tabTop(tableauCol);
     byte cardId = cardIds[pos];
     return canMoveHome(cardId);
   }
 
   @Override
   public ForkFreeCell moveToHomeCellFromFreeCell(int freeCol) {
-    return null;
+    assert freeCol >= tabRoot(0) || freeCol < 0;
+    int pos = SUITS + freeCol;
+    byte cardId = cardIds[pos];
+    if (!canMoveHome(cardId)) {
+      throw new IllegalArgumentException();
+    }
+    byte[] newCardIds = copyAndRemoveAt(cardIds, pos);
+    newCardIds[suitOrd(cardId)] = cardId;
+    int[] newTableauRoot = tableauRoot.clone();
+    for (int col = 0; col < newTableauRoot.length; col++) {
+      newTableauRoot[col]--;
+    }
+
+    return new ForkFreeCell(newCardIds, newTableauRoot);
   }
+
+
 
   @Override
   public boolean canMoveToHomeCellFromFreeCell(int freeCol) {
+    if (freeCol >= tabRoot(0) || freeCol < 0) {
+      throw new ArrayIndexOutOfBoundsException();
+    }
     return false;
   }
 
@@ -194,7 +211,7 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   @Override
   @Nullable
   public Card peekTableau(int tableauCol) {
-    byte cardId = cardIds[tableauTop[tableauCol]];
+    byte cardId = cardIds[tabTop(tableauCol)];
     if (cardId == EMPTY) {
       return null;
     }
@@ -309,11 +326,31 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   private Deque<Card> getCol(int col) {
     Deque<Card> cards = new ArrayDeque<>();
-    int pos = tableauTop[col];
+    int pos = tabTop(col);
     byte cardId;
     while ((cardId = cardIds[pos--]) != EMPTY) {
       cards.addLast(ALL_CARDS_ORD[cardOrd(cardId)]);
     }
     return cards;
+  }
+
+  private int tabTop(int col) {
+    if (col + 1 == Tableau.COLS) {
+      return cardIds.length - 1;
+    }
+    return tabRoot(col + 1) - 1;
+  }
+
+  private int tabRoot(int col) {
+    return tableauRoot[col];
+  }
+
+  // TODO: test
+  @VisibleForTesting
+  static byte[] copyAndRemoveAt(byte[] arr, int pos) {
+    byte[] newArr = new byte[arr.length - 1];
+    System.arraycopy(arr, 0, newArr, 0, pos);
+    System.arraycopy(arr, pos + 1, newArr, pos, arr.length - pos - 1);
+    return newArr;
   }
 }

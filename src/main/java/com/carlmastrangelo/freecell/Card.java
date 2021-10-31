@@ -115,6 +115,14 @@ public enum Card {
     KING(13, 'K'),
     ;
 
+    public static final int ACE_ORD = 0;
+    public static final int KING_ORD = 12;
+
+    static {
+      assert ACE.ordinal() == ACE_ORD;
+      assert KING.ordinal() == KING_ORD;
+    }
+
     private final int num;
     private final String symbol;
 

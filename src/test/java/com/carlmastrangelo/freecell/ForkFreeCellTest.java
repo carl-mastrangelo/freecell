@@ -71,4 +71,13 @@ public class ForkFreeCellTest {
     System.out.println(game.toString());
     game.hashCode();
   }
+
+  @Test
+  public void canMoveToHomeCellFromTableau() {
+    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
+    System.out.println(game.toString());
+    assertTrue(game.canMoveToHomeCellFromTableau(0));
+    game = game.moveToHomeCellFromTableau(0);
+    System.out.println(game.toString());
+  }
 }
