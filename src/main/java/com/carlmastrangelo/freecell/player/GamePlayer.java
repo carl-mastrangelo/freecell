@@ -54,7 +54,8 @@ public final class GamePlayer {
     FreeCell game = new FreeCell();
 
     RandomGenerator rng = new SplittableRandom(10);
-    //game.deal(rng);
+    game.deal(rng);
+    /*
     game.deal(parse(
             "JD", "KD", "7D", "4C", "KH", "QH", "4S", "AC",
             "9S", "3D", "5H", "9D", "QC", "JH", "8C", "9C",
@@ -69,7 +70,7 @@ public final class GamePlayer {
             "6C", null, null, null, null, null, null, null,
             "5D", null, null, null, null, null, null, null),
         parse("JS"),
-        parse("2D", "2H"));
+        parse("2D", "2H"));*/
     System.out.println(game);
 
     Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
@@ -83,6 +84,7 @@ public final class GamePlayer {
     while (!gameMoves.isEmpty()) {
       GameMoves gm = gameMoves.pollFirst();
       lastGame.set(gm.game());
+      List<Move> moves = gm.moves();
       for (Move move : gm.moves()) {
         FreeCell newGame = gm.game().copy();
         move.play(newGame);
@@ -107,6 +109,7 @@ public final class GamePlayer {
         }
       }
     }
+    throw new RuntimeException("no moves left");
   }
 
   private static List<Move> moves(FreeCell game) {
@@ -117,7 +120,7 @@ public final class GamePlayer {
         continue;
       }
       if (game.canMoveToHomeCellFromTableau(srcTableauCol)) {
-        moves.add(new MoveToHomeCellFromTableau(srcTableauCol));
+        moves.add(new Move.MoveToHomeCellFromTableau(srcTableauCol));
         switch (srcCard.suit().color()) {
           case BLACK -> {
             Card topDiamond = game.topHomeCell(Card.Suit.DIAMONDS);
@@ -141,11 +144,11 @@ public final class GamePlayer {
         }
       }
       if (game.openFreeCell()) {
-        moves.add(new MoveToFreeCellFromTableau(srcTableauCol));
+        moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
       for (int dstTableauCol = srcTableauCol + 1; dstTableauCol < FreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
         if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
-          moves.add(new MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
+          moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
         }
       }
     }
@@ -155,7 +158,7 @@ public final class GamePlayer {
       }
       if (game.canMoveToHomeCellFromFreeCell(freeCol)) {
         Card srcCard = game.peekFreeCell(freeCol);
-        moves.add(new MoveToHomeCellFromFreeCell(freeCol));
+        moves.add(new Move.MoveToHomeCellFromFreeCell(freeCol));
         switch (srcCard.suit().color()) {
           case BLACK -> {
             Card topDiamond = game.topHomeCell(Card.Suit.DIAMONDS);
@@ -180,102 +183,13 @@ public final class GamePlayer {
       }
       for (int dstTableauCol = 0; dstTableauCol < FreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
         if (game.canMoveToTableauFromFreeCell(dstTableauCol, freeCol)) {
-          moves.add(new MoveToTableauFromFreeCell(dstTableauCol, freeCol));
+          moves.add(new Move.MoveToTableauFromFreeCell(dstTableauCol, freeCol));
         }
       }
     }
     return moves;
   }
 
-  private sealed interface Move
-      permits MoveToHomeCellFromTableau, MoveToFreeCellFromTableau, MoveToTableauFromTableau,
-      MoveToHomeCellFromFreeCell, MoveToTableauFromFreeCell {
-    void play(FreeCell game);
-
-    /**
-     * May be called before {@link #play(FreeCell)}, but not after.  Describes the move about to be done.
-     */
-    void describe(StringBuilder sb, FreeCell game);
-  }
-
-  private record MoveToHomeCellFromTableau(int tableauCol) implements Move {
-    @Override
-    public void play(FreeCell game) {
-      game.moveToHomeCellFromTableau(tableauCol);
-    }
-
-    @Override
-    public void describe(StringBuilder sb, FreeCell game) {
-      Card card = game.peekTableau(tableauCol);
-      sb.append("Move ").append(card.name()).append(" to home");
-    }
-  }
-
-  private record MoveToFreeCellFromTableau(int tableauCol) implements Move {
-    @Override
-    public void play(FreeCell game) {
-      game.moveToFreeCellFromTableau(tableauCol);
-    }
-
-    @Override
-    public void describe(StringBuilder sb, FreeCell game) {
-      Card card = game.peekTableau(tableauCol);
-      sb.append("Move ")
-          .append(card.name())
-          .append(" to free cell");
-    }
-  }
-
-  private record MoveToTableauFromTableau(int dstTableauCol, int srcTableauCol) implements Move {
-    @Override
-    public void play(FreeCell game) {
-      game.moveToTableauFromTableau(dstTableauCol, srcTableauCol);
-    }
-
-    @Override
-    public void describe(StringBuilder sb, FreeCell game) {
-      Card srcCard = game.peekTableau(srcTableauCol);
-      Card dstCard = game.peekTableau(dstTableauCol);
-      sb.append("Move ").append(srcCard.name());
-      if (dstCard == null) {
-        sb.append(" onto empty tableau col ").append(dstTableauCol);
-      } else {
-        sb.append(" onto ").append(dstCard.name());
-      }
-    }
-  }
-
-  private record MoveToHomeCellFromFreeCell(int freeCol) implements Move {
-    @Override
-    public void play(FreeCell game) {
-      game.moveToHomeCellFromFreeCell(freeCol);
-    }
-
-    @Override
-    public void describe(StringBuilder sb, FreeCell game) {
-      Card card = game.peekFreeCell(freeCol);
-      sb.append("Move ").append(card.name()).append(" to home");
-    }
-  }
-
-  private record MoveToTableauFromFreeCell(int dstTableauCol, int freeCol) implements Move {
-    @Override
-    public void play(FreeCell game) {
-      game.moveToTableauFromFreeCell(dstTableauCol, freeCol);
-    }
-
-    @Override
-    public void describe(StringBuilder sb, FreeCell game) {
-      Card srcCard = game.peekFreeCell(freeCol);
-      Card dstCard = game.peekTableau(dstTableauCol);
-      sb.append("Move ").append(srcCard.name());
-      if (dstCard == null) {
-        sb.append(" onto empty tableau col ").append(dstTableauCol);
-      } else {
-        sb.append(" onto ").append(dstCard.name());
-      }
-    }
-  }
 
   private static List<Card> parse(String ... symbols) {
     List<Card> cards = new ArrayList<>(symbols.length);
