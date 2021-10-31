@@ -1,6 +1,6 @@
 package com.carlmastrangelo.freecell;
 
-import static com.carlmastrangelo.freecell.Card.ALL_CARDS;
+import static com.carlmastrangelo.freecell.Card.ALL_CARDS_ORD;
 import static com.carlmastrangelo.freecell.Card.CARDS;
 import static com.carlmastrangelo.freecell.Card.RANKS;
 
@@ -60,7 +60,7 @@ final class Tableau {
     if (colTopIdx[col] == -1) {
       return null;
     }
-    return Card.ALL_CARDS[cols[col][colTopIdx[col]]];
+    return Card.ALL_CARDS_ORD[cols[col][colTopIdx[col]]];
   }
 
   /**
@@ -76,7 +76,7 @@ final class Tableau {
       for (int col = 0; col < COLS; col++) {
         sb.append("  ");
         if (i <= colTopIdx[col]) {
-          sb.append(ALL_CARDS[cols[col][i]]);
+          sb.append(ALL_CARDS_ORD[cols[col][i]]);
           cardOnRow = true;
         } else {
           sb.append("  ");

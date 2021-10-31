@@ -66,7 +66,7 @@ public enum Card {
 
   static final Suit[] ALL_SUITS = Suit.values();
   static final Rank[] ALL_RANKS = Rank.values();
-  static final Card[] ALL_CARDS = Card.values();
+  static final Card[] ALL_CARDS_ORD = Card.values();
 
   private static final Card[][] SUITS_RANKS;
   private static final Card[][] RANKS_SUITS;
@@ -78,7 +78,7 @@ public enum Card {
   static {
     assert RANKS == ALL_RANKS.length;
     assert SUITS == ALL_SUITS.length;
-    assert CARDS == ALL_CARDS.length;
+    assert CARDS == ALL_CARDS_ORD.length;
     SUITS_RANKS = new Card[SUITS][];
     RANKS_SUITS = new Card[RANKS][];
 
@@ -89,7 +89,7 @@ public enum Card {
       SUITS_RANKS[suit.ordinal()] = new Card[RANKS];
       for (Rank rank : ALL_RANKS) {
         int cardOrdinal = suit.ordinal() * RANKS + rank.ordinal();
-        Card card = ALL_CARDS[cardOrdinal];
+        Card card = ALL_CARDS_ORD[cardOrdinal];
         assert card.rank() == rank;
         assert card.suit() == suit;
         assert card.ordinal() == cardOrdinal;
@@ -260,14 +260,14 @@ public enum Card {
   public static Card parse(String symbol) {
 
     Map<String, Card> cards =
-        Arrays.stream(ALL_CARDS).collect(Collectors.toMap(c -> c.rank().symbol() + c.suit().altSymbol, c -> c));
+        Arrays.stream(ALL_CARDS_ORD).collect(Collectors.toMap(c -> c.rank().symbol() + c.suit().altSymbol, c -> c));
     Card card = cards.get(symbol.toUpperCase(Locale.ROOT));
     if (card != null) {
       return card;
     }
     // Hacky, but not called often.
     Map<String, Card> revCards =
-        Arrays.stream(ALL_CARDS).collect(Collectors.toMap(c -> c.suit().altSymbol + c.rank().symbol() , c -> c));
+        Arrays.stream(ALL_CARDS_ORD).collect(Collectors.toMap(c -> c.suit().altSymbol + c.rank().symbol() , c -> c));
     card = revCards.get(symbol.toUpperCase(Locale.ROOT));
     if (card != null) {
       return card;

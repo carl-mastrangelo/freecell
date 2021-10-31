@@ -1,6 +1,6 @@
 package com.carlmastrangelo.freecell;
 
-public sealed interface FreeCell<T extends FreeCell<T>> permits MutableFreeCell {
+public sealed interface FreeCell<T extends FreeCell<T>> permits ForkFreeCell, MutableFreeCell {
 
   boolean gameWon();
 

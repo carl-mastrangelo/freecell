@@ -143,7 +143,7 @@ public final class GamePlayer {
           return List.of(moves.get(moves.size() - 1));
         }
       }
-      if (game.openFreeCell()) {
+      if (game.canMoveToFreeCell()) {
         moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
       for (int dstTableauCol = srcTableauCol + 1; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {

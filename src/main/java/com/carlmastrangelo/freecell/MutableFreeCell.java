@@ -1,6 +1,6 @@
 package com.carlmastrangelo.freecell;
 
-import static com.carlmastrangelo.freecell.Card.ALL_CARDS;
+import static com.carlmastrangelo.freecell.Card.ALL_CARDS_ORD;
 import static com.carlmastrangelo.freecell.Card.ALL_SUITS;
 import static com.carlmastrangelo.freecell.Card.SUITS;
 
@@ -44,13 +44,13 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   public void deal(RandomGenerator rng) {
-    Card[] cards = ALL_CARDS.clone();
+    Card[] cards = ALL_CARDS_ORD.clone();
     shuffle(cards, rng);
     deal(cards, EMPTY_FREE_CELLS, EMPTY_HOME_CELLS);
   }
 
   public void deal(List<Card> tableauCards, List<Card> freeCellCards, List<Card> homeCellCards) {
-    Set<Card> allCardsSet = new LinkedHashSet<>(Arrays.asList(ALL_CARDS));
+    Set<Card> allCardsSet = new LinkedHashSet<>(Arrays.asList(ALL_CARDS_ORD));
     for (Card card : tableauCards) {
       if (card == null) {
         continue;
