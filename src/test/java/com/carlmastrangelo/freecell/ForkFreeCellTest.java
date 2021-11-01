@@ -108,6 +108,30 @@ public class ForkFreeCellTest {
   }
 
   @Test
+  public void moveToTableauCellFromTableau() {
+    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToTableauFromTableau(1, 0);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToTableauFromTableau(0, 1);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToTableauFromTableau(1, 0);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToTableauFromTableau(1, 0);
+    System.out.println(game.toString());
+
+    assertFalse(game.canMoveToFreeCell());
+  }
+
+  @Test
   public void insertFreeCard_smaller() {
     byte[] cardIds = new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 4, EMPTY};
     ForkFreeCell.insertFreeCard(cardIds, (byte) 2);

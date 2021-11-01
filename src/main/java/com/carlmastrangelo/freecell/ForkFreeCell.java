@@ -107,10 +107,12 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   @VisibleForTesting
   static final byte EMPTY = -1;
   private static final Card[] ALL_CARDS_ID;
+  private static final int[] SUIT_COLOR = new int[]{0, 1, 1, 0};
 
   static {
     assert ALL_SUITS.length == 4;
     assert ALL_RANKS.length == 13;
+    // TODO: assert on SUIT_COLOR matching actual values
     ALL_CARDS_ID = new Card[64];
     for (Card card : ALL_CARDS_ORD) {
       ALL_CARDS_ID[cardId(card)] = card;
@@ -278,12 +280,65 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   @Override
   public ForkFreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
-    return null;
+    if (dstTableauCol == srcTableauCol) {
+      throw new IllegalArgumentException();
+    }
+    int dstPos = tabTop(dstTableauCol);
+    byte dstCardId = cardIds[dstPos];
+    int srcPos = tabTop(srcTableauCol);
+    byte srcCardId = checkCardNotEmpty(cardIds[srcPos]);
+    assert dstCardId == EMPTY
+         || (rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId));
+    byte[] newCardIds = new byte[cardIds.length];
+    int[] newTableauRoot = tableauRoot.clone();
+    /*
+      Two cases:
+      [ a b c d S e f g D h k]
+      [ a b c d e f g D S h k]
+                |     | + ---
+
+
+      [ a b c d D e f g S h k]
+      [ a b c d D S e f g h k]
+                  + |   | ---
+     */
+    if (dstPos > srcPos) {
+      System.arraycopy(cardIds, 0, newCardIds, 0, srcPos);
+      System.arraycopy(cardIds, srcPos + 1, newCardIds, srcPos, dstPos - srcPos);
+      newCardIds[dstPos] = srcCardId;
+      System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + 1, newCardIds.length - dstPos - 1);
+      for (int col = srcTableauCol + 1; col <= dstTableauCol; col++) {
+        newTableauRoot[col]--;
+      }
+    } else {
+      System.arraycopy(cardIds, 0, newCardIds, 0, dstPos + 1);
+      newCardIds[dstPos + 1] = srcCardId;
+      System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + 2, srcPos - dstPos - 1);
+      System.arraycopy(cardIds, srcPos + 1, newCardIds, srcPos + 1, newCardIds.length - srcPos - 1);
+      for (int col = dstTableauCol + 1; col <= srcTableauCol; col++) {
+        newTableauRoot[col]++;
+      }
+    }
+
+    return new ForkFreeCell(newCardIds, newTableauRoot);
   }
 
   @Override
   public boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
-    return false;
+    if (srcTableauCol == dstTableauCol) {
+      return false;
+    }
+    int dstPos = tabTop(dstTableauCol);
+    byte dstCardId = cardIds[dstPos];
+    int srcPos = tabTop(srcTableauCol);
+    byte srcCardId = cardIds[srcPos];
+    if (srcCardId == EMPTY) {
+      return false;
+    }
+    if (dstCardId == EMPTY) {
+      return true;
+    }
+    return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
   }
 
   @Override
@@ -363,6 +418,11 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   private static int rankOrd(byte cardId) {
     assert (cardId & 0xF) < RANKS;
     return cardId & 0xF;
+  }
+
+
+  private static int colorOrd(byte cardId) {
+    return SUIT_COLOR[suitOrd(cardId)];
   }
 
   private static void shuffle(List<Card> cards, RandomGenerator rng) {
