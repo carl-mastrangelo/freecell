@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
-import java.util.LinkedHashSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -54,13 +54,11 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   public static ForkFreeCell dealColumns(
       List<Card> homeCells, List<Card> freeCells, List<? extends List<Card>> tableauColumns) {
-    Set<Card> allCards = new LinkedHashSet<>(Arrays.asList(ALL_CARDS_ORD));
+    Set<Card> allCards = EnumSet.allOf(Card.class);
     int homeCards = 0;
     for (Card card : homeCells) {
       do {
-        if (!allCards.remove(Objects.requireNonNull(card))) {
-          throw new IllegalArgumentException("Card already used " + card);
-        }
+        checkRemove(allCards, card);
         homeCards++;
         card = card.lowerRank();
       } while (card != null);
@@ -72,11 +70,9 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
       cardIds[suitOrd(cardId)] = cardId;
     }
     int pos = SUITS;
-    freeCells = freeCells.stream().map(Objects::requireNonNull).sorted().collect(Collectors.toList());
+    freeCells = freeCells.stream().sorted().collect(Collectors.toList());
     for (Card card : freeCells) {
-      if (!allCards.remove(card)) {
-        throw new IllegalArgumentException("Card already used " + card);
-      }
+      checkRemove(allCards, card);
       cardIds[pos++] = cardId(card);
     }
 
@@ -85,9 +81,7 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
     for (List<Card> column : tableauColumns) {
       tableauRoot[col++] = pos++;
       for (Card card : column) {
-        if (!allCards.remove(Objects.requireNonNull(card))) {
-          throw new IllegalArgumentException("Card already used " + card);
-        }
+        checkRemove(allCards, card);
         cardIds[pos++] = cardId(card);
       }
     }
@@ -96,6 +90,8 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
     }
     return new ForkFreeCell(cardIds, tableauRoot);
   }
+
+
 
   /*
   * [1 2 3 4 X 5 3 X 6]
@@ -107,7 +103,9 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   *
   *
   * */
-  private static final byte EMPTY = -1;
+
+  @VisibleForTesting
+  static final byte EMPTY = -1;
   private static final Card[] ALL_CARDS_ID;
 
   static {
@@ -140,7 +138,7 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
   @Override
   public ForkFreeCell moveToHomeCellFromTableau(int tableauCol) {
     int pos = tabTop(tableauCol);
-    byte cardId = cardIds[pos];
+    byte cardId = checkCardNotEmpty(cardIds[pos]);
     if (!canMoveHome(cardId)) {
       throw new IllegalArgumentException();
     }
@@ -151,7 +149,7 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
       tableauRoot[col]--;
     }
 
-    return new ForkFreeCell(newCardIds, tableauRoot);
+    return new ForkFreeCell(newCardIds, newTableauRoot);
   }
 
   private boolean canMoveHome(byte cardId) {
@@ -167,12 +165,15 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
     // TODO: test if this can be called with empty
     int pos = tabTop(tableauCol);
     byte cardId = cardIds[pos];
+    if (cardId == EMPTY) {
+      return false;
+    }
     return canMoveHome(cardId);
   }
 
   @Override
   public ForkFreeCell moveToHomeCellFromFreeCell(int freeCol) {
-    assert freeCol >= tabRoot(0) || freeCol < 0;
+    assert canMoveToHomeCellFromFreeCell(freeCol);
     int pos = SUITS + freeCol;
     byte cardId = cardIds[pos];
     if (!canMoveHome(cardId)) {
@@ -188,8 +189,6 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
     return new ForkFreeCell(newCardIds, newTableauRoot);
   }
 
-
-
   @Override
   public boolean canMoveToHomeCellFromFreeCell(int freeCol) {
     if (freeCol >= tabRoot(0) || freeCol < 0) {
@@ -200,12 +199,65 @@ public final class ForkFreeCell implements FreeCell<ForkFreeCell> {
 
   @Override
   public ForkFreeCell moveToFreeCellFromTableau(int tableauCol) {
-    return null;
+    assert !tableauEmpty(tableauCol);
+    int topTabCardPos = tabTop(tableauCol);
+    byte cardId = checkCardNotEmpty(cardIds[topTabCardPos]);
+    byte[] newCardIds = new byte[cardIds.length];
+    int newLastFreePos = tabRoot(0);
+    // In the array [H H H H F F R], R is the tableau root.  Add 1 to the length
+    System.arraycopy(cardIds, 0, newCardIds, 0, newLastFreePos + 1);
+    insertFreeCard(newCardIds, cardId);
+    assert newCardIds[newLastFreePos] != EMPTY;
+    // The final argument would normally be (topTabCardPos - newLastFreePos + 1), but we will overwrite the top tab
+    // card in the next call.
+    System.arraycopy(cardIds, newLastFreePos, newCardIds, newLastFreePos + 1, topTabCardPos - newLastFreePos);
+    System.arraycopy(cardIds, topTabCardPos + 1, newCardIds, topTabCardPos + 1, newCardIds.length - topTabCardPos - 1);
+    int[] newTableauRoot = tableauRoot.clone();
+    for (int col = 0; col <= tableauCol; col++) {
+      newTableauRoot[col]++;
+    }
+    return new ForkFreeCell(newCardIds, newTableauRoot);
+  }
+
+  private static byte checkCardNotEmpty(byte cardId) {
+    if (cardId == EMPTY) {
+      throw new IllegalArgumentException("empty card");
+    }
+    return cardId;
+  }
+
+  private static void checkRemove(Set<Card> cards, Card card) {
+    if (!cards.remove(Objects.requireNonNull(card))) {
+      throw new IllegalArgumentException("Card already used " + card);
+    }
+  }
+
+  /**
+   * Inserts the card in the free cell.  This overwrites the first tableau root.
+   */
+  @VisibleForTesting
+  static void insertFreeCard(byte[] cardIds, byte cardId) {
+    byte freeCardId;
+    int pos = SUITS;
+    for (; (freeCardId = cardIds[pos]) != EMPTY; pos++) {
+      assert freeCardId != cardId;
+      if (freeCardId < cardId) {
+        cardIds[pos] = cardId;
+        cardId = freeCardId;
+      }
+    }
+    assert freeCardId == EMPTY;
+    cardIds[pos] = cardId;
   }
 
   @Override
   public boolean canMoveToFreeCell() {
-    return false;
+    return tabRoot(0) < SUITS + FreeCells.COLS;
+  }
+
+  public boolean tableauEmpty(int tableauCol) {
+    assert tabTop(tableauCol) >= tabRoot(tableauCol);
+    return tabTop(tableauCol) == tabRoot(tableauCol);
   }
 
   @Override

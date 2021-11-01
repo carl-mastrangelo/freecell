@@ -1,5 +1,7 @@
 package com.carlmastrangelo.freecell;
 
+import static com.carlmastrangelo.freecell.ForkFreeCell.EMPTY;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -79,5 +81,50 @@ public class ForkFreeCellTest {
     assertTrue(game.canMoveToHomeCellFromTableau(0));
     game = game.moveToHomeCellFromTableau(0);
     System.out.println(game.toString());
+  }
+
+  @Test
+  public void moveToFreeCellFromTableau() {
+    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToFreeCellFromTableau(0);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToFreeCellFromTableau(0);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToFreeCellFromTableau(0);
+    System.out.println(game.toString());
+
+    assertTrue(game.canMoveToFreeCell());
+    game = game.moveToFreeCellFromTableau(0);
+    System.out.println(game.toString());
+
+    assertFalse(game.canMoveToFreeCell());
+  }
+
+  @Test
+  public void insertFreeCard_smaller() {
+    byte[] cardIds = new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 4, EMPTY};
+    ForkFreeCell.insertFreeCard(cardIds, (byte) 2);
+    assertArrayEquals(new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 4, 2}, cardIds);
+  }
+
+  @Test
+  public void insertFreeCard_bigger() {
+    byte[] cardIds = new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 1, EMPTY};
+    ForkFreeCell.insertFreeCard(cardIds, (byte) 2);
+    assertArrayEquals(new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 2, 1}, cardIds);
+  }
+
+  @Test
+  public void insertFreeCard_empty() {
+    byte[] cardIds = new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY};
+    ForkFreeCell.insertFreeCard(cardIds, (byte) 2);
+    assertArrayEquals(new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 2}, cardIds);
   }
 }
