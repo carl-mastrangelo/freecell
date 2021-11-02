@@ -154,7 +154,7 @@ public final class ForkFreeCell implements FreeCell {
     newCardIds[suitOrd(cardId)] = cardId;
     int[] newTableauRoot = tableauRoot.clone();
     for (int col = tableauCol + 1; col < newTableauRoot.length; col++) {
-      tableauRoot[col]--;
+      newTableauRoot[col]--;
     }
 
     return new ForkFreeCell(newCardIds, newTableauRoot);
@@ -358,7 +358,7 @@ public final class ForkFreeCell implements FreeCell {
 
     byte[] newCardIds = new byte[cardIds.length];
     System.arraycopy(cardIds, 0, newCardIds, 0, srcFreePos);
-    System.arraycopy(cardIds, srcFreePos, newCardIds, srcFreePos -  1, dstTabPos - srcFreePos);
+    System.arraycopy(cardIds, srcFreePos + 1, newCardIds, srcFreePos, dstTabPos - srcFreePos);
     newCardIds[dstTabPos] = srcCardId;
     System.arraycopy(cardIds, dstTabPos + 1, newCardIds, dstTabPos + 1, newCardIds.length - dstTabPos - 1);
     int[] newTableauRoot = tableauRoot.clone();
