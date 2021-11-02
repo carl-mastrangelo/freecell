@@ -88,23 +88,23 @@ public class ForkFreeCellTest {
     ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
-    assertFalse(game.canMoveToFreeCell());
+    assertFalse(game.canMoveToFreeCellFromTableau(0));
   }
 
   @Test
@@ -112,23 +112,23 @@ public class ForkFreeCellTest {
     ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToTableauFromTableau(1, 0);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToTableauFromTableau(0, 1);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToTableauFromTableau(1, 0);
     System.out.println(game.toString());
 
-    assertTrue(game.canMoveToFreeCell());
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToTableauFromTableau(1, 0);
     System.out.println(game.toString());
 
-    assertFalse(game.canMoveToFreeCell());
+    assertFalse(game.canMoveToFreeCellFromTableau(0));
   }
 
   @Test

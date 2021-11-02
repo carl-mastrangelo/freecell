@@ -12,7 +12,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.random.RandomGenerator;
 
-public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
+public final class MutableFreeCell implements FreeCell {
 
   public static final int NO_FREE_CELL_IDX = FreeCells.NO_FREE_CELL;
   public static final int FREE_CELL_COLUMNS = FreeCells.COLS;
@@ -163,13 +163,13 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
    * Returns if the given freecell column is empty.
    */
   @Override
-  public boolean canMoveToFreeCell() {
-    return freeCells.freeCell();
+  public boolean canMoveToFreeCellFromTableau(int tableauCol) {
+    return freeCells.freeCell() && tableau.peek(tableauCol) != null;
   }
 
   @Override
   public MutableFreeCell moveToFreeCellFromTableau(int tableauCol) {
-    if (!canMoveToFreeCell()) {
+    if (!canMoveToFreeCellFromTableau(tableauCol)) {
       throw new IllegalArgumentException();
     }
 
