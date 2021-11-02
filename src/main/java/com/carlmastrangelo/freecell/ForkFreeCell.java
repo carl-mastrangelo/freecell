@@ -352,7 +352,6 @@ public final class ForkFreeCell implements FreeCell {
   public ForkFreeCell moveToTableauFromFreeCell(int dstTableauCol, int freeCol) {
     assert canMoveToTableauFromFreeCell(dstTableauCol, freeCol);
     int dstTabPos = tabTop(dstTableauCol);
-    byte dstCardId = checkCardNotEmpty(cardIds[dstTabPos]);
     int srcFreePos = SUITS + freeCol;
     byte srcCardId = cardIds[srcFreePos];
 
@@ -363,7 +362,7 @@ public final class ForkFreeCell implements FreeCell {
     System.arraycopy(cardIds, dstTabPos + 1, newCardIds, dstTabPos + 1, newCardIds.length - dstTabPos - 1);
     int[] newTableauRoot = tableauRoot.clone();
     for (int col = 0; col <= dstTableauCol; col++) {
-      newTableauRoot[col]++;
+      newTableauRoot[col]--;
     }
 
     return new ForkFreeCell(newCardIds, newTableauRoot);

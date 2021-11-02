@@ -1,6 +1,7 @@
 package com.carlmastrangelo.freecell.player;
 
 import com.carlmastrangelo.freecell.Card;
+import com.carlmastrangelo.freecell.ForkFreeCell;
 import com.carlmastrangelo.freecell.FreeCell;
 import com.carlmastrangelo.freecell.MutableFreeCell;
 import java.util.ArrayDeque;
@@ -51,11 +52,15 @@ public final class GamePlayer {
       }
     });
 
-
+    RandomGenerator rng = new SplittableRandom(10);
+    /*
     MutableFreeCell game = new MutableFreeCell();
 
-    RandomGenerator rng = new SplittableRandom(10);
+
     game.deal(rng);
+
+     */
+    FreeCell game = ForkFreeCell.dealDeck(rng);
     /*
     game.deal(parse(
             "JD", "KD", "7D", "4C", "KH", "QH", "4S", "AC",
@@ -150,7 +155,7 @@ public final class GamePlayer {
       if (game.canMoveToFreeCellFromTableau(srcTableauCol)) {
         moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
-      for (int dstTableauCol = srcTableauCol + 1; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
+      for (int dstTableauCol = 0; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
         if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
           moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
         }
