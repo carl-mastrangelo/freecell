@@ -12,7 +12,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.random.RandomGenerator;
 
-public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
+public final class MutableFreeCell implements FreeCell {
 
   public static final int NO_FREE_CELL_IDX = FreeCells.NO_FREE_CELL;
   public static final int FREE_CELL_COLUMNS = FreeCells.COLS;
@@ -122,13 +122,12 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   @Override
-  public MutableFreeCell moveToHomeCellFromTableau(int tableauCol) {
+  public void moveToHomeCellFromTableau(int tableauCol) {
     if (!canMoveToHomeCellFromTableau(tableauCol)) {
       throw new IllegalArgumentException("Can't move card");
     }
     Card card = tableau.pop(tableauCol);
     homeCells[card.suit().ordinal()] = card;
-    return this;
   }
 
   @Override
@@ -137,13 +136,12 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   @Override
-  public MutableFreeCell moveToHomeCellFromFreeCell(int freeCol) {
+  public void moveToHomeCellFromFreeCell(int freeCol) {
     if (!canMoveToHomeCellFromFreeCell(freeCol)) {
       throw new IllegalArgumentException("Can't move card");
     }
     Card card = freeCells.pop(freeCol);
     homeCells[card.suit().ordinal()] = card;
-    return this;
   }
 
   @Override
@@ -168,14 +166,13 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   @Override
-  public MutableFreeCell moveToFreeCellFromTableau(int tableauCol) {
+  public void moveToFreeCellFromTableau(int tableauCol) {
     if (!canMoveToFreeCell()) {
       throw new IllegalArgumentException();
     }
 
     Card card = tableau.pop(tableauCol);
     freeCells.push(card);
-    return this;
   }
 
   /**
@@ -195,12 +192,11 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   @Override
-  public MutableFreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
+  public void moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
     if (!canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
       throw new IllegalArgumentException();
     }
     tableau.push(tableau.pop(srcTableauCol), dstTableauCol);
-    return this;
   }
 
   @Override
@@ -210,12 +206,11 @@ public final class MutableFreeCell implements FreeCell<MutableFreeCell> {
   }
 
   @Override
-  public MutableFreeCell moveToTableauFromFreeCell(int dstTableauCol, int freeCol) {
+  public void moveToTableauFromFreeCell(int dstTableauCol, int freeCol) {
     if (!canMoveToTableauFromFreeCell(dstTableauCol, freeCol)) {
       throw new IllegalArgumentException();
     }
     tableau.push(freeCells.pop(freeCol), dstTableauCol);
-    return this;
   }
 
   public boolean canMoveToTableauFromFreeCell(int dstTableauCol, int freeCol) {

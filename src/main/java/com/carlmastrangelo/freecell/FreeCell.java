@@ -1,18 +1,18 @@
 package com.carlmastrangelo.freecell;
 
-public sealed interface FreeCell<T extends FreeCell<T>> permits MutableFreeCell {
+public sealed interface FreeCell permits MutableFreeCell {
 
   boolean gameWon();
 
-  T moveToHomeCellFromTableau(int tableauCol);
+  void moveToHomeCellFromTableau(int tableauCol);
 
   boolean canMoveToHomeCellFromTableau(int tableauCol);
 
-  T moveToHomeCellFromFreeCell(int freeCol);
+  void moveToHomeCellFromFreeCell(int freeCol);
 
   boolean canMoveToHomeCellFromFreeCell(int freeCol);
 
-  T moveToFreeCellFromTableau(int tableauCol);
+  void moveToFreeCellFromTableau(int tableauCol);
 
   boolean canMoveToFreeCell();
 
@@ -20,11 +20,11 @@ public sealed interface FreeCell<T extends FreeCell<T>> permits MutableFreeCell 
 
   Card peekFreeCell(int freeCol);
 
-  T moveToTableauFromTableau(int dstTableauCol, int srcTableauCol);
+  void moveToTableauFromTableau(int dstTableauCol, int srcTableauCol);
 
   boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol);
 
-  T moveToTableauFromFreeCell(int dstTableauCol, int freeCol);
+  void moveToTableauFromFreeCell(int dstTableauCol, int freeCol);
 
   boolean canMoveToTableauFromFreeCell(int dstTableauCol, int freeCol);
 }
