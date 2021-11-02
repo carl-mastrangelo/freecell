@@ -1,6 +1,7 @@
 package com.carlmastrangelo.freecell.player;
 
 import com.carlmastrangelo.freecell.Card;
+import com.carlmastrangelo.freecell.FreeCell;
 import com.carlmastrangelo.freecell.MutableFreeCell;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public final class GamePlayer {
   }
 
   private final AtomicLong gamesSeen = new AtomicLong(1);
-  private final AtomicReference<MutableFreeCell> lastGame = new AtomicReference<>();
+  private final AtomicReference<FreeCell> lastGame = new AtomicReference<>();
 
   private void play() {
     ForkJoinPool.commonPool().submit(new Runnable() {
@@ -73,10 +74,10 @@ public final class GamePlayer {
         parse("2D", "2H"));*/
     System.out.println(game);
 
-    Set<MutableFreeCell> seen = Collections.newSetFromMap(new HashMap<>());
+    Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
     seen.add(game);
 
-    record GameMoves(MutableFreeCell game, List<Move> moves){}
+    record GameMoves(FreeCell game, List<Move> moves){}
     Deque<GameMoves> gameMoves = new ArrayDeque<>();
     gameMoves.addLast(new GameMoves(game, moves(game)));
 
@@ -85,15 +86,18 @@ public final class GamePlayer {
       GameMoves gm = gameMoves.pollFirst();
       lastGame.set(gm.game());
       List<Move> moves = gm.moves();
-      for (Move move : gm.moves()) {
-        MutableFreeCell newGame = gm.game().copy();
-        move.play(newGame);
+      for (Move move : moves) {
+        FreeCell newGame;// = gm.game().copy();
+        newGame = move.play(gm.game());
         boolean better = false;
+        /*
         if (newGame.score() > top) {
           top = newGame.score();
           better = true;
           System.out.println(newGame);
         }
+        */
+
         if (newGame.gameWon()) {
           throw new RuntimeException("Success!");
         }
@@ -112,7 +116,7 @@ public final class GamePlayer {
     throw new RuntimeException("no moves left");
   }
 
-  private static List<Move> moves(MutableFreeCell game) {
+  private static List<Move> moves(FreeCell game) {
     List<Move> moves = new ArrayList<>();
     for (int srcTableauCol = 0; srcTableauCol < MutableFreeCell.TABLEAU_COLUMNS; srcTableauCol++) {
       Card srcCard = game.peekTableau(srcTableauCol);
