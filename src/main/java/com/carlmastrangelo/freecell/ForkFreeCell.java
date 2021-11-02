@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.EnumSet;
 import java.util.List;
@@ -133,6 +134,14 @@ public final class ForkFreeCell implements FreeCell {
   private ForkFreeCell(byte[] cardIds, int[] tableauRoot) {
     this.cardIds = cardIds;
     this.tableauRoot = tableauRoot;
+    if (!isSorted()) {
+      //System.out.println(this);
+      // sort();
+      assert isSorted();
+      //System.out.println(isSorted());
+      //.out.println(this);
+      //System.out.println();
+    }
   }
 
   @Override
@@ -516,5 +525,45 @@ public final class ForkFreeCell implements FreeCell {
     System.arraycopy(arr, 0, newArr, 0, pos);
     System.arraycopy(arr, pos + 1, newArr, pos, arr.length - pos - 1);
     return newArr;
+  }
+
+  private void sort() {
+    record SortOrder(int col, byte bottom) {}
+    List<SortOrder> order = new ArrayList<>(Tableau.COLS);
+
+    for (int col = 0; col < tableauRoot.length; col++) {
+      byte cardId = EMPTY;
+      if (tableauRoot[col] != cardIds.length - 1) {
+        cardId = cardIds[tableauRoot[col] + 1];
+      }
+      order.add(new SortOrder(col, cardId));
+    }
+    order.sort(Comparator.comparing(SortOrder::bottom));
+    byte[] oldCardIds = cardIds.clone();
+    int[] oldTableauRoot = Arrays.copyOf(tableauRoot, tableauRoot.length + 1);
+    oldTableauRoot[tableauRoot.length] = cardIds.length;
+    int pos = tabRoot(0);
+    int col = 0;
+    for (SortOrder so : order) {
+      int bytes = oldTableauRoot[so.col + 1] - oldTableauRoot[so.col];
+      System.arraycopy(oldCardIds, oldTableauRoot[so.col], cardIds, pos, bytes);
+
+      tableauRoot[col++] = pos;
+      pos += bytes;
+    }
+  }
+
+  private boolean isSorted() {
+    for (int col = 0; col < tableauRoot.length - 1; col++) {
+      byte cardIdLeft = cardIds[tableauRoot[col] + 1];
+      byte cardIdRight = EMPTY;
+      if (tableauRoot[col + 1] != cardIds.length - 1) {
+        cardIdRight = cardIds[tableauRoot[col + 1] + 1];
+      }
+      if (cardIdRight < cardIdLeft) {
+        return false;
+      }
+    }
+    return true;
   }
 }

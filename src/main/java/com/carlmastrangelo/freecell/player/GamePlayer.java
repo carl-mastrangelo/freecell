@@ -7,9 +7,11 @@ import com.carlmastrangelo.freecell.MutableFreeCell;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.ForkJoinPool;
@@ -23,7 +25,11 @@ public final class GamePlayer {
     new GamePlayer().play();
   }
 
-  private final AtomicLong gamesSeen = new AtomicLong(1);
+
+  record MoveNode(MoveNode prev, Move move, FreeCell game) {};
+
+  private final AtomicLong gamePlayed = new AtomicLong(1);
+  private final AtomicLong gamesSeen = new AtomicLong(0);
   private final AtomicReference<FreeCell> lastGame = new AtomicReference<>();
 
   private void play() {
@@ -35,7 +41,7 @@ public final class GamePlayer {
       public void run() {
         while (true) {
           try {
-            Thread.sleep(5000);
+            Thread.sleep(30000);
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
@@ -46,13 +52,13 @@ public final class GamePlayer {
           lastCount = currentCount;
           long timeDiff = now - lastRun;
           lastRun = now;
-          System.out.println((1_000_000_000.0 * gameDiff / timeDiff) + " games per second");
+          System.out.println((1_000_000_000.0 * gameDiff / timeDiff) + " games per second (" + currentCount + "/" + gamePlayed.get() + ")");
           System.out.println(lastGame.get());
         }
       }
     });
 
-    RandomGenerator rng = new SplittableRandom(10);
+    RandomGenerator rng = new SplittableRandom(2000);
     /*
     MutableFreeCell game = new MutableFreeCell();
 
@@ -82,39 +88,52 @@ public final class GamePlayer {
     Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
     seen.add(game);
 
-    record GameMoves(FreeCell game, List<Move> moves){}
-    Deque<GameMoves> gameMoves = new ArrayDeque<>();
-    gameMoves.addLast(new GameMoves(game, moves(game)));
+    record GameMoves(MoveNode move, FreeCell game, List<Move> moves, double gamescore){}
+    PriorityQueue<GameMoves> gameMoves = new PriorityQueue<>(Comparator.comparingDouble(GameMoves::gamescore).reversed());
+    gameMoves.add(new GameMoves(null, game, moves(game), 0));
 
-    int top = 0;
+    double top = 0;
     while (!gameMoves.isEmpty()) {
-      GameMoves gm = gameMoves.pollFirst();
+      GameMoves gm = gameMoves.poll();
       lastGame.set(gm.game());
       List<Move> moves = gm.moves();
       for (Move move : moves) {
         FreeCell newGame;// = gm.game().copy();
         newGame = move.play(gm.game());
+        gamePlayed.incrementAndGet();
         boolean better = false;
-        /*
-        if (newGame.score() > top) {
-          top = newGame.score();
+        double score = score(newGame);
+        if (score> top) {
+          top = score;
           better = true;
+          System.out.println("better " + top);
           System.out.println(newGame);
         }
-        */
 
         if (newGame.gameWon()) {
-          throw new RuntimeException("Success!");
+          Deque<MoveNode> moveNodes = new ArrayDeque<>();
+          MoveNode it = gm.move();
+          while (it != null) {
+            moveNodes.addFirst(it);
+            it = it.prev;
+          }
+          StringBuilder sb = new StringBuilder();
+
+          for (MoveNode mn : moveNodes) {
+            sb.append((mn.game()));
+            sb.append("\n");
+            mn.move().describe(sb, mn.game());
+            sb.append("\n\n");
+          }
+          sb.append("\n");
+          move.describe(sb, gm.game());
+          throw new RuntimeException("Success!" + sb);
         }
         if (seen.add(newGame)) {
           gamesSeen.incrementAndGet();
 
-          GameMoves newGm = new GameMoves(newGame, moves(newGame));
-          if (better) {
-            gameMoves.addFirst(newGm);
-          } else {
-            gameMoves.addLast(newGm);
-          }
+          GameMoves newGm = new GameMoves(new MoveNode(gm.move(), move, gm.game()), newGame, moves(newGame), score);
+          gameMoves.add(newGm);
         }
       }
     }
@@ -199,6 +218,22 @@ public final class GamePlayer {
     return moves;
   }
 
+  double score(FreeCell game)  {
+    double sum = 0;
+    int[] parts = new int[4];
+    for (Card.Suit suit : Card.Suit.values()) {
+      Card card = game.topHomeCell(suit);
+      parts[suit.ordinal()] = card != null ? card.rank().num() : 0;
+      sum +=parts[suit.ordinal()];
+    }
+    double var = 0;
+    for (int i =0; i < 4; i++) {
+      var += Math.pow(parts[i] - sum/4, 2);
+    }
+
+
+    return sum - var;
+  }
 
   private static List<Card> parse(String ... symbols) {
     List<Card> cards = new ArrayList<>(symbols.length);
