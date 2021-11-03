@@ -1,63 +1,184 @@
 package com.carlmastrangelo.freecell.player;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import com.carlmastrangelo.freecell.Card;
 import com.carlmastrangelo.freecell.ForkFreeCell;
 import com.carlmastrangelo.freecell.FreeCell;
 import com.carlmastrangelo.freecell.MutableFreeCell;
-import java.util.ArrayDeque;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
-import java.util.PriorityQueue;
+import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.Future;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.random.RandomGenerator;
+import javax.annotation.Nullable;
 
 public final class GamePlayer {
 
   public static void main(String [] args) {
-    new GamePlayer().play();
+    RandomGenerator rng = new SplittableRandom(2000);
+    GamePlayer gp = new GamePlayer(ForkFreeCell.dealDeck(rng));
+    gp.reportProgress(Executors.newSingleThreadScheduledExecutor(), Duration.ofSeconds(5));
+    // TODO: cancel this on complete
+    gp.playOnce();
+  }
+
+  private final ForkJoinPool pool = ForkJoinPool.commonPool();
+  private final FreeCell startGame;
+
+  private final LongAdder gamesPlayed = new LongAdder();
+  private final LongAdder gamesSeen = new LongAdder();
+
+  private final Set<FreeCell> visitedGames = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final Queue<GameProgress> nextGames = new PriorityBlockingQueue<>(1000, Comparator.reverseOrder());
+  private final AtomicReference<GameProgress> bestGameMoves = new AtomicReference<>();
+
+  GamePlayer(FreeCell startGame) {
+    this.startGame = Objects.requireNonNull(startGame);
+  }
+
+  Future<?> reportProgress(ScheduledExecutorService scheduler, Duration frequency) {
+    final class ProgressReporter implements Runnable {
+      private long lastRun = System.nanoTime();
+
+      private long lastGamesPlayed;
+      private long lastGamesSeen;
+
+      @Override
+      public synchronized void run() {
+        long now = System.nanoTime();
+        long played = gamesPlayed.sum();
+        long seen = gamesSeen.sum();
+
+        long playedDiff = played - lastGamesPlayed;
+        lastGamesPlayed = played;
+        long seenDiff = seen - lastGamesSeen;
+        lastGamesSeen = seen;
+        double nanosDiff = now - lastRun;
+        lastRun = now;
+
+        long playedPerSecond = (long)(playedDiff / nanosDiff * SECONDS.toNanos(1));
+        long seenPerSecond = (long)(seenDiff / nanosDiff * SECONDS.toNanos(1));
+        System.out.println(
+            "Seen " + seen + " (" + seenPerSecond + "/s) Played " + played + " (" + playedPerSecond + "/s)"
+                + " Pending " + nextGames.size() + " Cached: " + visitedGames.size());
+        GameProgress next = nextGames.peek();
+        System.out.println("Next to try: " + next + "\n");
+        next = bestGameMoves.get();
+        if (next != null) {
+          System.out.println("Best: " + next.moves().prevMoves());
+        }
+      }
+    }
+    return scheduler.scheduleAtFixedRate(new ProgressReporter(), frequency.toNanos(), frequency.toNanos(), NANOSECONDS);
+  }
+
+  private void playOnce() {
+    assert !startGame.gameWon();
+    visitedGames.add(startGame);
+    gamesSeen.add(1);
+    for (Move move : moves(startGame)) {
+      FreeCell game = move.play(startGame);
+      gamesPlayed.add(1);
+      if (!visitedGames.add(game)) {
+        continue;
+      }
+      gamesSeen.add(1);
+      double score = score(game);
+      nextGames.add(new GameProgress(game, score, new MoveList(null, 0, move)));
+    }
+
+    try {
+      pool.submit(new PlayMovesTask(new AtomicBoolean())).get();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (ExecutionException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private final class PlayMovesTask implements Runnable {
+
+    private final AtomicBoolean done;
+
+    private int currentBestMoves = Integer.MAX_VALUE;
+
+    PlayMovesTask(AtomicBoolean done) {
+      this.done = Objects.requireNonNull(done);
+    }
+
+    @Override
+    public void run() {
+      while (!Thread.currentThread().isInterrupted() && !done.get()) {
+        var prevGame = nextGames.poll();
+        if (prevGame == null) {
+          Thread.yield();
+          continue;
+        }
+        if (currentBestMoves <= prevGame.moves().prevMoves() + 1 + ((ForkFreeCell)prevGame.game()).minMovesToWin()) {
+          continue;
+        }
+
+        List<Move> moves = moves(prevGame.game());
+        for (Move move : moves) {
+          FreeCell game = move.play(prevGame.game());
+          gamesPlayed.add(1);
+          if (!visitedGames.add(game)) {
+            continue;
+          }
+          gamesSeen.add(1);
+          double score = score(game);
+          GameProgress nextGame = new GameProgress(game, score, prevGame.moves().branch(move));
+          if (game.gameWon()) {
+            updateBestGame(nextGame);
+          } else {
+            nextGames.add(nextGame);
+          }
+        }
+      }
+    }
+
+    private void updateBestGame(GameProgress nextGame) {
+      boolean first;
+      GameProgress currentBest;
+      do {
+        first = false;
+        currentBest = bestGameMoves.get();
+        if (currentBest != null) {
+          currentBestMoves = Math.min(currentBestMoves, currentBest.moves().prevMoves());
+          if (currentBest.moves().prevMoves() < nextGame.moves().prevMoves()) {
+            break;
+          }
+        } else {
+          first = true;
+        }
+      } while(!bestGameMoves.compareAndSet(currentBest, nextGame));
+      if (first) {
+        System.out.println("First Success!");
+        visitedGames.clear();
+      }
+    }
   }
 
 
-  record MoveNode(MoveNode prev, Move move, FreeCell game) {};
-
-  private final AtomicLong gamePlayed = new AtomicLong(1);
-  private final AtomicLong gamesSeen = new AtomicLong(0);
-  private final AtomicReference<FreeCell> lastGame = new AtomicReference<>();
-
   private void play() {
-    ForkJoinPool.commonPool().submit(new Runnable() {
-      long lastRun = System.nanoTime();
-      long lastCount = 0;
-
-      @Override
-      public void run() {
-        while (true) {
-          try {
-            Thread.sleep(30000);
-          } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-          }
-          long now = System.nanoTime();
-          long currentCount = gamesSeen.get();
-
-          long gameDiff = currentCount - lastCount;
-          lastCount = currentCount;
-          long timeDiff = now - lastRun;
-          lastRun = now;
-          System.out.println((1_000_000_000.0 * gameDiff / timeDiff) + " games per second (" + currentCount + "/" + gamePlayed.get() + ")");
-          System.out.println(lastGame.get());
-        }
-      }
-    });
-
     RandomGenerator rng = new SplittableRandom(2000);
     /*
     MutableFreeCell game = new MutableFreeCell();
@@ -88,10 +209,7 @@ public final class GamePlayer {
     Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
     seen.add(game);
 
-    record GameMoves(MoveNode move, FreeCell game, List<Move> moves, double gamescore){}
-    PriorityQueue<GameMoves> gameMoves = new PriorityQueue<>(Comparator.comparingDouble(GameMoves::gamescore).reversed());
-    gameMoves.add(new GameMoves(null, game, moves(game), 0));
-
+/*
     double top = 0;
     while (!gameMoves.isEmpty()) {
       GameMoves gm = gameMoves.poll();
@@ -136,7 +254,7 @@ public final class GamePlayer {
           gameMoves.add(newGm);
         }
       }
-    }
+    }*/
     throw new RuntimeException("no moves left");
   }
 
@@ -245,5 +363,50 @@ public final class GamePlayer {
       cards.add(Card.parse(symbol));
     }
     return Collections.unmodifiableList(cards);
+  }
+
+  private record GameProgress(FreeCell game, double score, MoveList moves) implements Comparable<GameProgress> {
+    GameProgress {
+      Objects.requireNonNull(game);
+      if (!Double.isFinite(score)) {
+        throw new IllegalArgumentException();
+      }
+      Objects.requireNonNull(moves);
+    }
+
+    @Override
+    public int compareTo(GameProgress that) {
+      return Double.compare(this.score, that.score);
+    }
+
+    @Override
+    public String toString() {
+      return "GameProgress{\n" +
+          "game=" + game +
+          "\n\nscore=" + score +
+          ", moves=" + moves.prevMoves() +
+          '}';
+    }
+  }
+
+  private record MoveList(@Nullable MoveList prev, int prevMoves, Move nextMove) {
+
+    MoveList {
+      if (prev == null && prevMoves != 0) {
+        throw new IllegalArgumentException();
+      } else if (prev != null && prev.prevMoves != prevMoves - 1) {
+        throw new IllegalArgumentException();
+      }
+      Objects.requireNonNull(nextMove);
+    }
+
+    MoveList branch(Move move) {
+      return new MoveList(this, prevMoves + 1, move);
+    }
+
+    @Override
+    public String toString() {
+      return "MoveList(" + prevMoves + ')';
+    }
   }
 }
