@@ -136,7 +136,7 @@ public final class ForkFreeCell implements FreeCell {
     this.tableauRoot = tableauRoot;
     if (!isSorted()) {
       //System.out.println(this);
-      // sort();
+      sort();
       assert isSorted();
       //System.out.println(isSorted());
       //.out.println(this);
@@ -151,7 +151,20 @@ public final class ForkFreeCell implements FreeCell {
         return false;
       }
     }
+    assert minMovesToWin() == 0;
     return true;
+  }
+
+  public int minMovesToWin() {
+    int sum = 0;
+    for (int i = 0; i < SUITS; i++) {
+      if (cardIds[i] == EMPTY) {
+        sum += RANKS;
+      } else {
+        sum += Card.Rank.KING_ORD - rankOrd(cardIds[i]) + 1;
+      }
+    }
+    return sum;
   }
 
   @Override
