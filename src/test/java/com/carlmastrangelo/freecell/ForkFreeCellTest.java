@@ -7,7 +7,9 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.truth.Truth;
 import java.util.List;
+import java.util.Scanner;
 import java.util.SplittableRandom;
+import java.util.function.Consumer;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
