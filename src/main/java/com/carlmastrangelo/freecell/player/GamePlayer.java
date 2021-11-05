@@ -200,7 +200,7 @@ public final class GamePlayer {
       var += Math.pow(parts[i] - sum/4, 2);
     }
 
-    return sum - var;
+    return sum - Math.sqrt(var);
   }
 
   private static List<Card> parse(String ... symbols) {
