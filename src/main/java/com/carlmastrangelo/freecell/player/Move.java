@@ -2,7 +2,6 @@ package com.carlmastrangelo.freecell.player;
 
 import com.carlmastrangelo.freecell.Card;
 import com.carlmastrangelo.freecell.FreeCell;
-import com.carlmastrangelo.freecell.MutableFreeCell;
 
 sealed interface Move
     permits Move.MoveToHomeCellFromTableau, Move.MoveToFreeCellFromTableau, Move.MoveToTableauFromTableau,
@@ -13,7 +12,6 @@ sealed interface Move
    * May be called before {@link #play(FreeCell)}, but not after.  Describes the move about to be done.
    */
   void describe(StringBuilder sb, FreeCell game);
-
 
   record MoveToHomeCellFromTableau(int tableauCol) implements Move {
     @Override

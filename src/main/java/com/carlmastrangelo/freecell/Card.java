@@ -1,6 +1,11 @@
 package com.carlmastrangelo.freecell;
 
+import static com.carlmastrangelo.freecell.Rank.RANK_COUNT;
+
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -64,149 +69,27 @@ public enum Card {
   KING_SPADES(Rank.KING, Suit.SPADES),
   ;
 
-  static final Suit[] ALL_SUITS = Suit.values();
-  static final Rank[] ALL_RANKS = Rank.values();
-  static final Card[] ALL_CARDS_ORD = Card.values();
+  public static final int CARD_COUNT = 52;
+  public static final List<Card> CARDS_BY_ORD;
 
-  private static final Card[][] SUITS_RANKS;
-  private static final Card[][] RANKS_SUITS;
-
-  static final int RANKS = 13;
-  static final int SUITS = 4;
-  static final int CARDS = 52;
+  private static final Map<String, Card> CARDS_BY_SYMBOL;
 
   static {
-    assert RANKS == ALL_RANKS.length;
-    assert SUITS == ALL_SUITS.length;
-    assert CARDS == ALL_CARDS_ORD.length;
-    SUITS_RANKS = new Card[SUITS][];
-    RANKS_SUITS = new Card[RANKS][];
+    CARDS_BY_ORD = List.of(Card.values());
+    assert CARD_COUNT == CARDS_BY_ORD.size();
 
-    for (Rank rank : ALL_RANKS) {
-      RANKS_SUITS[rank.ordinal()] = new Card[SUITS];
+    Map<String, Card> cardsBySymbol = new HashMap<>();
+    for (Card  card : CARDS_BY_ORD) {
+      cardsBySymbol.put(card.symbol, card);
+      cardsBySymbol.put(card.asciiSymbol, card);
     }
-    for (Suit suit : ALL_SUITS) {
-      SUITS_RANKS[suit.ordinal()] = new Card[RANKS];
-      for (Rank rank : ALL_RANKS) {
-        int cardOrdinal = suit.ordinal() * RANKS + rank.ordinal();
-        Card card = ALL_CARDS_ORD[cardOrdinal];
-        assert card.rank() == rank;
-        assert card.suit() == suit;
-        assert card.ordinal() == cardOrdinal;
-        SUITS_RANKS[suit.ordinal()][rank.ordinal()] = card;
-        RANKS_SUITS[rank.ordinal()][suit.ordinal()] = card;
-      }
-    }
+    CARDS_BY_SYMBOL = Map.copyOf(cardsBySymbol);
   }
 
-  public enum Rank {
-    ACE(1, 'A'),
-    TWO(2, '2'),
-    THREE(3, '3'),
-    FOUR(4, '4'),
-    FIVE(5, '5'),
-    SIX(6, '6'),
-    SEVEN(7, '7'),
-    EIGHT(8, '8'),
-    NINE(9, '9'),
-    TEN(10, 'X'),
-    JACK(11, 'J'),
-    QUEEN(12, 'Q'),
-    KING(13, 'K'),
-    ;
-
-    public static final int ACE_ORD = 0;
-    public static final int KING_ORD = 12;
-
-    static {
-      assert ACE.ordinal() == ACE_ORD;
-      assert KING.ordinal() == KING_ORD;
-    }
-
-    private final int num;
-    private final String symbol;
-
-    Rank(int num, char symbol) {
-      this.num = num;
-      this.symbol = String.valueOf(symbol);
-    }
-
-    public int num() {
-      return num;
-    }
-
-    public String symbol() {
-      return symbol;
-    }
-
-    @Nullable
-    public Rank lower() {
-      if (this == ACE) {
-        return null;
-      }
-      return ALL_RANKS[ordinal() - 1];
-    }
-
-    @Nullable
-    public Rank upper() {
-      if (this == KING) {
-        return null;
-      }
-      return ALL_RANKS[ordinal() + 1];
-    }
-  }
-
-  public enum Suit {
-
-    CLUBS("\u2667", "C", Color.BLACK),
-    DIAMONDS("\u2662", "D", Color.RED),
-    HEARTS("\u2661", "H", Color.RED),
-    SPADES("\u2664", "S", Color.BLACK),
-    ;
-
-    private final String symbol;
-    private final String altSymbol;
-    private final Color color;
-
-    Suit(String symbol, String altSymbol, Color color) {
-      this.symbol = symbol;
-      this.altSymbol = altSymbol;
-      this.color = color;
-    }
-
-    public String symbol() {
-      return symbol;
-    }
-
-    public Color color() {
-      return color;
-    }
-
-    @Nullable
-    public Suit lower() {
-      if (this == CLUBS) {
-        return null;
-      }
-      return ALL_SUITS[ordinal() - 1];
-    }
-
-    @Nullable
-    public Suit upper() {
-      if (this == SPADES) {
-        return null;
-      }
-      return ALL_SUITS[ordinal() + 1];
-    }
-  }
-
-  public enum Color {
-    BLACK,
-    RED;
-  }
-  
   private final Rank rank;
   private final Suit suit;
   private final String symbol;
+  private final String asciiSymbol;
 
   Card(Rank rank, Suit suit) {
     this.rank = rank;
@@ -218,6 +101,7 @@ public enum Card {
       case HEARTS -> Character.toString(0x1F0B0 + rankNum);
       case SPADES -> Character.toString(0x1F0A0 + rankNum);
     };
+    this.asciiSymbol = rank.symbol() + suit.asciiSymbol();
   }
 
   public Rank rank() {
@@ -238,7 +122,7 @@ public enum Card {
     if (rank().upper() == null) {
       return null;
     }
-    return RANKS_SUITS[rank().ordinal() + 1][suit().ordinal()];
+    return CARDS_BY_ORD.get(suit().ordinal() * RANK_COUNT  + rank().ordinal() + 1);
   }
 
   @Nullable
@@ -246,7 +130,7 @@ public enum Card {
     if (rank().lower() == null) {
       return null;
     }
-    return RANKS_SUITS[rank().ordinal() - 1][suit().ordinal()];
+    return CARDS_BY_ORD.get(suit().ordinal() * RANK_COUNT  + rank().ordinal() - 1);
   }
 
   @Nullable
@@ -254,7 +138,7 @@ public enum Card {
     if (suit().upper() == null) {
       return null;
     }
-    return RANKS_SUITS[rank().ordinal()][suit().ordinal() + 1];
+    return CARDS_BY_ORD.get((suit().ordinal() + 1) * RANK_COUNT  + rank().ordinal());
   }
 
   @Nullable
@@ -262,24 +146,14 @@ public enum Card {
     if (suit().lower() == null) {
       return null;
     }
-    return RANKS_SUITS[rank().ordinal()][suit().ordinal() - 1];
+    return CARDS_BY_ORD.get((suit().ordinal() - 1) * RANK_COUNT  + rank().ordinal());
   }
 
-  public static Card parse(String symbol) {
-
-    Map<String, Card> cards =
-        Arrays.stream(ALL_CARDS_ORD).collect(Collectors.toMap(c -> c.rank().symbol() + c.suit().altSymbol, c -> c));
-    Card card = cards.get(symbol.toUpperCase(Locale.ROOT));
-    if (card != null) {
-      return card;
+  public static Card ofSymbol(String symbol) {
+    Card card = CARDS_BY_SYMBOL.get(symbol.toUpperCase(Locale.ROOT));
+    if (card == null) {
+      throw new IllegalArgumentException("Unknown card " + symbol);
     }
-    // Hacky, but not called often.
-    Map<String, Card> revCards =
-        Arrays.stream(ALL_CARDS_ORD).collect(Collectors.toMap(c -> c.suit().altSymbol + c.rank().symbol() , c -> c));
-    card = revCards.get(symbol.toUpperCase(Locale.ROOT));
-    if (card != null) {
-      return card;
-    }
-    throw new IllegalArgumentException("Unknown cards " + card);
+    return card;
   }
 }

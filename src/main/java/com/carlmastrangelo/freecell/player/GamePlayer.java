@@ -1,12 +1,15 @@
 package com.carlmastrangelo.freecell.player;
 
+import static com.carlmastrangelo.freecell.FreeCell.FREE_CELLS;
+import static com.carlmastrangelo.freecell.FreeCell.TABLEAU_COLS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.carlmastrangelo.freecell.Card;
 import com.carlmastrangelo.freecell.ForkFreeCell;
 import com.carlmastrangelo.freecell.FreeCell;
-import com.carlmastrangelo.freecell.MutableFreeCell;
+import com.carlmastrangelo.freecell.Rank;
+import com.carlmastrangelo.freecell.Suit;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +37,7 @@ import javax.annotation.Nullable;
 public final class GamePlayer {
 
   public static void main(String [] args) {
-    RandomGenerator rng = new SplittableRandom(2000);
+    RandomGenerator rng = new SplittableRandom(2001);
     GamePlayer gp = new GamePlayer(ForkFreeCell.dealDeck(rng));
     gp.reportProgress(Executors.newSingleThreadScheduledExecutor(), Duration.ofSeconds(5));
     // TODO: cancel this on complete
@@ -79,11 +83,14 @@ public final class GamePlayer {
         System.out.println(
             "Seen " + seen + " (" + seenPerSecond + "/s) Played " + played + " (" + playedPerSecond + "/s)"
                 + " Pending " + nextGames.size() + " Cached: " + visitedGames.size());
+
+        //visitedGames.clear();
         GameProgress next = nextGames.peek();
         System.out.println("Next to try: " + next + "\n");
         next = bestGameMoves.get();
         if (next != null) {
           System.out.println("Best: " + next.moves().prevMoves());
+
         }
       }
     }
@@ -92,6 +99,8 @@ public final class GamePlayer {
 
   private void playOnce() {
     assert !startGame.gameWon();
+    visitedGames.clear();
+    nextGames.clear();
     visitedGames.add(startGame);
     gamesSeen.add(1);
     for (Move move : moves(startGame)) {
@@ -162,6 +171,7 @@ public final class GamePlayer {
         first = false;
         currentBest = bestGameMoves.get();
         if (currentBest != null) {
+          System.err.println("SUCCESS " + currentBest.moves().prevMoves());
           currentBestMoves = Math.min(currentBestMoves, currentBest.moves().prevMoves());
           if (currentBest.moves().prevMoves() < nextGame.moves().prevMoves()) {
             break;
@@ -170,10 +180,8 @@ public final class GamePlayer {
           first = true;
         }
       } while(!bestGameMoves.compareAndSet(currentBest, nextGame));
-      if (first) {
-        System.out.println("First Success!");
-        visitedGames.clear();
-      }
+      done.set(true);
+      playOnce();
     }
   }
 
@@ -209,137 +217,77 @@ public final class GamePlayer {
     Set<FreeCell> seen = Collections.newSetFromMap(new HashMap<>());
     seen.add(game);
 
-/*
-    double top = 0;
-    while (!gameMoves.isEmpty()) {
-      GameMoves gm = gameMoves.poll();
-      lastGame.set(gm.game());
-      List<Move> moves = gm.moves();
-      for (Move move : moves) {
-        FreeCell newGame;// = gm.game().copy();
-        newGame = move.play(gm.game());
-        gamePlayed.incrementAndGet();
-        boolean better = false;
-        double score = score(newGame);
-        if (score> top) {
-          top = score;
-          better = true;
-          System.out.println("better " + top);
-          System.out.println(newGame);
-        }
 
-        if (newGame.gameWon()) {
-          Deque<MoveNode> moveNodes = new ArrayDeque<>();
-          MoveNode it = gm.move();
-          while (it != null) {
-            moveNodes.addFirst(it);
-            it = it.prev;
-          }
-          StringBuilder sb = new StringBuilder();
-
-          for (MoveNode mn : moveNodes) {
-            sb.append((mn.game()));
-            sb.append("\n");
-            mn.move().describe(sb, mn.game());
-            sb.append("\n\n");
-          }
-          sb.append("\n");
-          move.describe(sb, gm.game());
-          throw new RuntimeException("Success!" + sb);
-        }
-        if (seen.add(newGame)) {
-          gamesSeen.incrementAndGet();
-
-          GameMoves newGm = new GameMoves(new MoveNode(gm.move(), move, gm.game()), newGame, moves(newGame), score);
-          gameMoves.add(newGm);
-        }
-      }
-    }*/
     throw new RuntimeException("no moves left");
+  }
+
+  private static boolean shouldMoveHome(Card card, FreeCell game) {
+    if (card.rank() == Rank.ACE || card.rank() == Rank.TWO) {
+      return true;
+    }
+    return switch (card.suit().color()) {
+      case BLACK -> {
+        Card topDiamond = game.topHomeCell(Suit.DIAMONDS);
+        Card topHeart = game.topHomeCell(Suit.HEARTS);
+        yield topDiamond != null && topDiamond.rank().num() >= card.rank().num()
+            && topHeart != null && topHeart.rank().num() >= card.rank().num();
+      }
+      case RED -> {
+        Card topClub = game.topHomeCell(Suit.CLUBS);
+        Card topSpade = game.topHomeCell(Suit.SPADES);
+        yield topClub != null && topClub.rank().num() >= card.rank().num()
+            && topSpade != null && topSpade.rank().num() >= card.rank().num();
+      }
+    };
   }
 
   private static List<Move> moves(FreeCell game) {
     List<Move> moves = new ArrayList<>();
-    for (int srcTableauCol = 0; srcTableauCol < MutableFreeCell.TABLEAU_COLUMNS; srcTableauCol++) {
+    for (int srcTableauCol = 0; srcTableauCol < TABLEAU_COLS; srcTableauCol++) {
       Card srcCard = game.peekTableau(srcTableauCol);
       if (srcCard == null) {
         continue;
       }
       if (game.canMoveToHomeCellFromTableau(srcTableauCol)) {
         moves.add(new Move.MoveToHomeCellFromTableau(srcTableauCol));
-        switch (srcCard.suit().color()) {
-          case BLACK -> {
-            Card topDiamond = game.topHomeCell(Card.Suit.DIAMONDS);
-            Card topHeart = game.topHomeCell(Card.Suit.HEARTS);
-            if (topDiamond != null && topDiamond.rank().num() >= srcCard.rank().num()
-               && topHeart != null && topHeart.rank().num() >= srcCard.rank().num()) {
-              return List.of(moves.get(moves.size() - 1));
-            }
-          }
-          case RED -> {
-            Card topClub = game.topHomeCell(Card.Suit.CLUBS);
-            Card topSpade = game.topHomeCell(Card.Suit.SPADES);
-            if (topClub != null && topClub.rank().num() >= srcCard.rank().num()
-                && topSpade != null && topSpade.rank().num() >= srcCard.rank().num()) {
-              return List.of(moves.get(moves.size() - 1));
-            }
-          }
-        }
-        if (srcCard.rank() == Card.Rank.ACE || srcCard.rank() == Card.Rank.TWO)  {
+        if (shouldMoveHome(srcCard, game)) {
           return List.of(moves.get(moves.size() - 1));
         }
       }
       if (game.canMoveToFreeCellFromTableau(srcTableauCol)) {
         moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
-      for (int dstTableauCol = 0; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
+      for (int dstTableauCol = 0; dstTableauCol < TABLEAU_COLS; dstTableauCol++) {
         if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
           moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
         }
       }
     }
-    for (int freeCol = 0; freeCol < MutableFreeCell.FREE_CELL_COLUMNS; freeCol++) {
-      if (game.peekFreeCell(freeCol) == null) {
+    for (int freeCol = 0; freeCol < FREE_CELLS; freeCol++) {
+      Card srcCard = game.peekFreeCell(freeCol);
+      if (srcCard == null) {
         continue;
       }
       if (game.canMoveToHomeCellFromFreeCell(freeCol)) {
-        Card srcCard = game.peekFreeCell(freeCol);
         moves.add(new Move.MoveToHomeCellFromFreeCell(freeCol));
-        switch (srcCard.suit().color()) {
-          case BLACK -> {
-            Card topDiamond = game.topHomeCell(Card.Suit.DIAMONDS);
-            Card topHeart = game.topHomeCell(Card.Suit.HEARTS);
-            if (topDiamond != null && topDiamond.rank().num() >= srcCard.rank().num()
-                && topHeart != null && topHeart.rank().num() >= srcCard.rank().num()) {
-              return List.of(moves.get(moves.size() - 1));
-            }
-          }
-          case RED -> {
-            Card topClub = game.topHomeCell(Card.Suit.CLUBS);
-            Card topSpade = game.topHomeCell(Card.Suit.SPADES);
-            if (topClub != null && topClub.rank().num() >= srcCard.rank().num()
-                && topSpade != null && topSpade.rank().num() >= srcCard.rank().num()) {
-              return List.of(moves.get(moves.size() - 1));
-            }
-          }
-        }
-        if (srcCard.rank() == Card.Rank.ACE || srcCard.rank() == Card.Rank.TWO) {
+        if (shouldMoveHome(srcCard, game)) {
           return List.of(moves.get(moves.size() - 1));
         }
       }
-      for (int dstTableauCol = 0; dstTableauCol < MutableFreeCell.TABLEAU_COLUMNS; dstTableauCol++) {
+      for (int dstTableauCol = 0; dstTableauCol < TABLEAU_COLS; dstTableauCol++) {
         if (game.canMoveToTableauFromFreeCell(dstTableauCol, freeCol)) {
           moves.add(new Move.MoveToTableauFromFreeCell(dstTableauCol, freeCol));
         }
       }
     }
+    Collections.shuffle(moves, new Random());
     return moves;
   }
 
   double score(FreeCell game)  {
     double sum = 0;
     int[] parts = new int[4];
-    for (Card.Suit suit : Card.Suit.values()) {
+    for (Suit suit : Suit.values()) {
       Card card = game.topHomeCell(suit);
       parts[suit.ordinal()] = card != null ? card.rank().num() : 0;
       sum +=parts[suit.ordinal()];
@@ -360,7 +308,7 @@ public final class GamePlayer {
         cards.add(null);
         continue;
       }
-      cards.add(Card.parse(symbol));
+      cards.add(Card.ofSymbol(symbol));
     }
     return Collections.unmodifiableList(cards);
   }
@@ -376,7 +324,16 @@ public final class GamePlayer {
 
     @Override
     public int compareTo(GameProgress that) {
-      return Double.compare(this.score, that.score);
+      int cmp = Double.compare(this.score, that.score);
+      if (cmp != 0) {
+        return cmp;
+      }
+      var thisMoves = moves().prevMoves();
+      var thatMoves = that.moves().prevMoves();
+      if (Math.abs(thisMoves - thatMoves) < 2) {
+        return 0;
+      }
+      return Integer.compare(thatMoves, thisMoves);
     }
 
     @Override

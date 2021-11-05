@@ -2,7 +2,10 @@ package com.carlmastrangelo.freecell;
 
 import javax.annotation.Nullable;
 
-public sealed interface FreeCell permits ForkFreeCell, MutableFreeCell {
+public sealed interface FreeCell permits ForkFreeCell {
+
+  int FREE_CELLS = 4;
+  int TABLEAU_COLS = 8;
 
   boolean gameWon();
 
@@ -33,5 +36,5 @@ public sealed interface FreeCell permits ForkFreeCell, MutableFreeCell {
   boolean canMoveToTableauFromFreeCell(int dstTableauCol, int freeCol);
 
   @Nullable
-  Card topHomeCell(Card.Suit suit);
+  Card topHomeCell(Suit suit);
 }
