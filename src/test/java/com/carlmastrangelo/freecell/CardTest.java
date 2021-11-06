@@ -5,8 +5,10 @@ import static org.junit.Assert.assertNull;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,19 +62,8 @@ public class CardTest {
     var code = encode(order);
     System.out.println(code);
 
-    var newOrds = decode(code);
-
-    while (newOrds.size() < order.size()) {
-      newOrds.add(0, 0);
-    }
-    while (newOrds.size() > order.size()) {
-      if (newOrds.get(0) != 0) {
-        throw new AssertionError();
-      }
-      newOrds.remove(0);
-    }
-    //newOrds.add(0);
-    if (!newOrds.equals(order)) {
+    var newOrds = decode(52, code);
+    if (!Arrays.stream(newOrds).boxed().collect(Collectors.toList()).equals(order)) {
       throw new AssertionError();
     }
 
@@ -101,19 +92,27 @@ public class CardTest {
     return sum;
   }
 
-  private List<Integer> decode(BigInteger factoradix) {
-    var ords = new ArrayList<Integer>();
-    for (int i = 0; ;i++) {
+  private int[] decode(BigInteger factoradix) {
+    for (int i = 0; ; i++) {
       if (factoradix.compareTo(factorials.get(i)) > 0) {
         continue;
       }
+      return decode(i, factoradix);
+    }
+  }
 
-      for (int k = i; k >= 0; k--) {
-        BigInteger[] divmod = factoradix.divideAndRemainder(factorials.get(k));
-        ords.add(divmod[0].intValueExact());
-        factoradix = divmod[1];
-      }
-      return ords;
+  private int[] decode(int ordCount, BigInteger factoradix) {
+    int[] ords = new int[ordCount];
+    decode(ords, factoradix);
+    return ords;
+  }
+
+  private void decode(int[] ords, BigInteger factoradix) {
+    // normally this would be k >= 0, but since the final element is always 0, it doesn't matter.
+    for (int i = 0, k = ords.length - 1; k > 0; k--, i++) {
+      BigInteger[] divmod = factoradix.divideAndRemainder(factorials.get(k));
+      ords[i] = divmod[0].intValueExact();
+      factoradix = divmod[1];
     }
   }
 }
