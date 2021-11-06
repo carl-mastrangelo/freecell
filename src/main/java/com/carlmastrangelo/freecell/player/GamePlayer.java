@@ -8,6 +8,7 @@ import com.carlmastrangelo.freecell.ForkFreeCell;
 import com.carlmastrangelo.freecell.FreeCell;
 import com.carlmastrangelo.freecell.Suit;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -34,14 +35,14 @@ public final class GamePlayer {
     RandomGenerator.SplittableGenerator rng = rngf.create(1);
     GamePlayer gp = new GamePlayer(ForkFreeCell.dealDeck(rng));
     gp.reportProgress(Executors.newSingleThreadScheduledExecutor(), Duration.ofSeconds(5));
-    var game = ForkFreeCell.dealDeck(rng);
+    var game = ForkFreeCell.dealDeck(rngf.create(1));
     var res = new GamePlay(
         new GameProgress(game, 0, null),
-        10_000_000,
+        50_000_000,
         GameComparator.INSTANCE,
         GamePlayer::score,
         Integer.MAX_VALUE,
-        rng,
+        rngf.create(4),
         new GamePlay.ProgressReporter() {
           @Override
           public void movePlayed() {
@@ -54,7 +55,27 @@ public final class GamePlayer {
           }
         }
     ).play();
-    System.out.println(res);
+    System.out.println(describeGame(game, res.gameProgress()));
+  }
+
+  private static String describeGame(FreeCell game, GameProgress gameState) {
+    var sb = new StringBuilder();
+    sb.append(gameState.moves.totalMoves).append(" moves to win\n");
+    sb.append(game);
+    var deque = new ArrayDeque<Move>();
+    MoveList list = gameState.moves();
+    while (list != null) {
+      deque.addFirst(list.move());
+      list = list.lastMove();
+    }
+    for (Move move : deque) {
+      sb.append("\n");
+      move.describe(sb, game);
+      sb.append("\n\n");
+      game = move.play(game);
+      sb.append(game);
+    }
+    return sb.toString();
   }
 
   private final ForkJoinPool pool = ForkJoinPool.commonPool();

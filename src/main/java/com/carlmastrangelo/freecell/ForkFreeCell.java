@@ -15,6 +15,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.IntBinaryOperator;
+import java.util.function.IntFunction;
+import java.util.function.IntUnaryOperator;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -369,6 +372,7 @@ public final class ForkFreeCell implements FreeCell {
     return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
   }
 
+
   @Override
   public ForkFreeCell moveToTableauFromFreeCell(int dstTableauCol, int freeCol) {
     assert canMoveToTableauFromFreeCell(dstTableauCol, freeCol);
@@ -441,6 +445,7 @@ public final class ForkFreeCell implements FreeCell {
         }
       }
     } while(output);
+    sb.delete(sb.lastIndexOf("\n"), sb.length() -1);
 
     return sb.toString();
   }
