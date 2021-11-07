@@ -4,8 +4,10 @@ import static com.carlmastrangelo.freecell.Card.CARDS_BY_ORD;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.function.IntFunction;
+import java.util.function.ToIntFunction;
 
 final class LehmerCoder {
   private final List<BigInteger> factorials;
@@ -53,6 +55,40 @@ final class LehmerCoder {
       permdexes[i] = idx;
     }
     return permdexes;
+  }
+
+  <T> int[] altPermdexes(List<? extends T> elems, ToIntFunction<? super T> ordFn) {
+    int[] permdexes = new int[elems.size()];
+    int i = 0;
+    long bitset = 0;
+    for (T elem : elems) {
+      int ord = ordFn.applyAsInt(elem);
+      long bit = 1L << ord;
+      permdexes[i++] = ord - Long.bitCount(bitset & (bit - 1));
+      bitset |= bit;
+    }
+    return permdexes;
+  }
+
+  <T> void altPermute(List<? super T> permutation, int[] permdexes, IntFunction<? extends T> ordFn) {
+    long bitset = 0;
+    for (int i = 0; i < permdexes.length; i++) {
+      int permdex = permdexes[i];
+      long bit = 1L << permdex;
+      int lower;
+      int nextlower = Long.bitCount(bitset & ((bit<<1) - 1));
+      do {
+        lower = nextlower;
+        bit = 1L << (permdex + lower);
+        nextlower = Long.bitCount(bitset & ((bit<<1) - 1));
+      } while (lower != nextlower);
+      permutation.add(ordFn.apply(permdex + lower));
+      bitset |= bit;
+    }
+  }
+
+  private static int below(int ord, long bitset) {
+    return Long.bitCount(bitset & ((1L<<ord) - 1));
   }
 
   BigInteger encode(int[] radixes) {
