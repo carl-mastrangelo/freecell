@@ -13,8 +13,10 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -25,9 +27,9 @@ import javax.annotation.Nullable;
 
 final class GamePlay {
 
-  private final long maxPlays;
+  private final long maxMoves;
   private final ToDoubleFunction<? super FreeCell> scorer;
-  private final Reference<Set<FreeCell>> visitedGames = new SoftReference<>(new HashSet<>());
+  private final Reference<Map<FreeCell, Integer>> visitedGames = new SoftReference<>(new HashMap<>());
   private final Queue<GamePlayer.GameProgress> nextGames;
   private final int bestMoveCount;
   @Nullable
@@ -37,12 +39,12 @@ final class GamePlay {
   private final List<Move> movesCache = new ArrayList<>();
 
   GamePlay(
-      GamePlayer.GameProgress initialGameProgress, long maxPlays, Comparator<GamePlayer.GameProgress> comparator,
+      GamePlayer.GameProgress initialGameProgress, long maxMoves, Comparator<GamePlayer.GameProgress> comparator,
       ToDoubleFunction<? super FreeCell> scorer, int bestMoveCount, @Nullable RandomGenerator moveShuffler,
       @Nullable ProgressReporter reporter) {
     this.nextGames = new PriorityQueue<>(1000, comparator.reversed());
     this.nextGames.add(Objects.requireNonNull(initialGameProgress));
-    this.maxPlays = maxPlays;
+    this.maxMoves = maxMoves;
     this.scorer = Objects.requireNonNull(scorer);
     this.bestMoveCount = bestMoveCount;
     this.moveShuffler = moveShuffler;
@@ -65,13 +67,13 @@ final class GamePlay {
     try {
       return playInternal();
     } finally {
-      var set = visitedGames.get();
+      //var set = visitedGames.get();
       visitedGames.clear();
-      if (set != null) {
-        set.clear();
-      }
-      nextGames.clear();
-      movesCache.clear();
+      //if (set != null) {
+      //  set.clear();
+      //}
+      //nextGames.clear();
+      //movesCache.clear();
     }
   }
 
@@ -84,50 +86,59 @@ final class GamePlay {
     MAX_PLAYS,
   }
 
-  @Nullable
   private GameResult playInternal() {
-    for (int plays = 0; plays < maxPlays; plays++) {
-      if ((plays & 0xFF_FF_FF) == 0xFF_FF_FF && Thread.currentThread().isInterrupted()) {
-        return new GameResult(Status.INTERRUPTED, null);
-      }
-      GamePlayer.GameProgress gameProgress = nextGames.poll();
-      if (gameProgress == null) {
-        return new GameResult(Status.UNWINNABLE, null);
-      }
+    GamePlayer.GameProgress preProgress;
+    int movesPlayed = 0;
+    while ((preProgress = nextGames.poll()) != null) {
       movesCache.clear();
-      findMoves(movesCache, gameProgress.game());
+      findMoves(movesCache, preProgress.game());
       if (moveShuffler != null) {
         shuffle(movesCache, moveShuffler);
       }
 
       for (Move move : movesCache) {
-        FreeCell nextGame = move.play(gameProgress.game());
+        if (movesPlayed++ == maxMoves) {
+          return new GameResult(Status.MAX_PLAYS, null);
+        }
+        if ((movesPlayed & 0xFFFFF) == 0xFFFFF && Thread.currentThread().isInterrupted()) {
+          return new GameResult(Status.INTERRUPTED, null);
+        }
+
+        FreeCell postGame = move.play(preProgress.game());
         reporter.movePlayed();
-        if (!visitGame(nextGame)) {
+        GamePlayer.MoveList preMoves = preProgress.moves();
+        if (!visitGame(postGame, preMoves.totalMoves() + 1)) {
           continue;
         }
         reporter.gameSeen();
-        double score = scorer.applyAsDouble(nextGame);
-        GamePlayer.MoveList moves = gameProgress.moves();
-        moves = moves == null ? new GamePlayer.MoveList(moves, 1, move) : moves.branch(move);
+        double score = scorer.applyAsDouble(postGame);
+
         GamePlayer.GameProgress nextGameProgress =
-            new GamePlayer.GameProgress(nextGame, score, moves);
-        if (nextGame.gameWon()) {
+            new GamePlayer.GameProgress(postGame, score, preMoves.branch(move));
+        if (postGame.gameWon()) {
           return new GameResult(Status.SUCCESS, nextGameProgress);
         } else if (couldBeatBestMoves(nextGameProgress)) {
           nextGames.add(nextGameProgress);
         }
       }
     }
-    return new GameResult(Status.MAX_PLAYS, null);
+    return new GameResult(Status.UNWINNABLE, null);
   }
 
-  private boolean visitGame(FreeCell game) {
-    var set = visitedGames.get();
-    if (set == null) {
+
+
+  private boolean visitGame(FreeCell game, int depth) {
+    var map = visitedGames.get();
+    if (map == null) {
       return true;
     }
-    return set.add(game);
+    Integer depthBox  = depth;
+    Integer old = map.putIfAbsent(game, depthBox);
+    if (old != null && old <= depth) {
+      return false;
+    }
+    map.put(game, depthBox);
+    return true;
   }
 
   private boolean couldBeatBestMoves(GamePlayer.GameProgress gameProgress) {

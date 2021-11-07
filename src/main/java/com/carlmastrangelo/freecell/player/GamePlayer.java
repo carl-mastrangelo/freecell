@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,28 +33,41 @@ public final class GamePlayer {
     var rngf = RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of("L64X256MixRandom");
     RandomGenerator.SplittableGenerator rng = rngf.create(1);
     GamePlayer gp = new GamePlayer(ForkFreeCell.dealDeck(rng));
-    gp.reportProgress(Executors.newSingleThreadScheduledExecutor(), Duration.ofSeconds(5));
-    var game = ForkFreeCell.dealDeck(rngf.create(1));
-    var res = new GamePlay(
-        new GameProgress(game, 0, null),
-        50_000_000,
-        GameComparator.INSTANCE,
-        GamePlayer::score,
-        Integer.MAX_VALUE,
-        rngf.create(4),
-        new GamePlay.ProgressReporter() {
-          @Override
-          public void movePlayed() {
-            gp.gamesPlayed.increment();
-          }
+    var prog = gp.reportProgress(Executors.newSingleThreadScheduledExecutor(r -> {
+      var t = new Thread(r);
+      t.setDaemon(true);
+      return t;
+    }), Duration.ofSeconds(5));
+    var game = ForkFreeCell.dealDeck(rngf.create(6));
+    int best = Integer.MAX_VALUE;
+    for (int i = 0; ;i++) {
+      var res = new GamePlay(
+          new GameProgress(game, 0, new MoveList(null, 0, null)),
+          25_000_000,
+          GameComparator.INSTANCE,
+          GamePlayer::score,
+          best,
+          rngf.create(i),
+          new GamePlay.ProgressReporter() {
+            @Override
+            public void movePlayed() {
+              gp.gamesPlayed.increment();
+            }
 
-          @Override
-          public void gameSeen() {
-            gp.gamesSeen.increment();
+            @Override
+            public void gameSeen() {
+              gp.gamesSeen.increment();
+            }
           }
-        }
-    ).play();
-    System.out.println(describeGame(game, res.gameProgress()));
+      ).play();
+      if (res.status() == GamePlay.Status.SUCCESS) {
+        System.out.println(describeGame(game, res.gameProgress()));
+        best = Math.min(best, res.gameProgress().moves().totalMoves());
+      } else {
+        System.out.println(res);
+      }
+    }
+    // prog.cancel(true);
   }
 
   private static String describeGame(FreeCell game, GameProgress gameState) {
@@ -64,7 +76,7 @@ public final class GamePlayer {
     sb.append(game);
     var deque = new ArrayDeque<Move>();
     MoveList list = gameState.moves();
-    while (list != null) {
+    while (list != null  && list.totalMoves != 0) {
       deque.addFirst(list.move());
       list = list.lastMove();
     }
@@ -138,7 +150,7 @@ public final class GamePlayer {
       }
       var thisMoves = o1.moves().totalMoves();
       var thatMoves = o2.moves().totalMoves();
-      if (Math.abs(thisMoves - thatMoves) < 20) {
+      if (Math.abs(thisMoves - thatMoves) < 2) {
         return 0;
       }
       return Integer.compare(thatMoves, thisMoves);
@@ -236,9 +248,10 @@ public final class GamePlayer {
     return Collections.unmodifiableList(cards);
   }
 
-  record GameProgress(FreeCell game, double score, @Nullable MoveList moves) {
+  record GameProgress(FreeCell game, double score, MoveList moves) {
     GameProgress {
       Objects.requireNonNull(game);
+      Objects.requireNonNull(moves);
       if (!Double.isFinite(score)) {
         throw new IllegalArgumentException();
       }
@@ -254,15 +267,18 @@ public final class GamePlayer {
     }
   }
 
-  record MoveList(@Nullable MoveList lastMove, int totalMoves, Move move) {
+  record MoveList(@Nullable MoveList lastMove, int totalMoves, @Nullable Move move) {
 
     MoveList {
-      if (lastMove == null && totalMoves != 1) {
-        throw new IllegalArgumentException();
-      } else if (lastMove != null && lastMove.totalMoves != totalMoves - 1) {
-        throw new IllegalArgumentException();
+      if (lastMove == null || totalMoves == 0 || move == null) {
+        if (lastMove != null || totalMoves != 0 || move != null) {
+          throw new IllegalArgumentException();
+        }
+      } else {
+        if (lastMove.totalMoves != totalMoves - 1) {
+          throw new IllegalArgumentException();
+        }
       }
-      Objects.requireNonNull(move);
     }
 
     MoveList branch(Move move) {

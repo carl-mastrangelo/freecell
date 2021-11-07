@@ -29,6 +29,7 @@ jmh {
     warmup = "1s"
     fork = 1
     warmupIterations = 10
+    profilers = ["gc"]
     //include = ["LogBenchmark"]
     //duplicateClassesStrategy = 'exclude'
 }
