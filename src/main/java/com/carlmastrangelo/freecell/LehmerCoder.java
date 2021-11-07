@@ -72,23 +72,25 @@ final class LehmerCoder {
 
   <T> void altPermute(List<? super T> permutation, int[] permdexes, IntFunction<? extends T> ordFn) {
     long bitset = 0;
-    for (int i = 0; i < permdexes.length; i++) {
-      int permdex = permdexes[i];
-      long bit = 1L << permdex;
+    for (int permdex : permdexes) {
       int lower;
-      int nextlower = Long.bitCount(bitset & ((bit<<1) - 1));
+      int nextlower = belowOrEqual(bitset, permdex);
       do {
         lower = nextlower;
-        bit = 1L << (permdex + lower);
-        nextlower = Long.bitCount(bitset & ((bit<<1) - 1));
+        nextlower = belowOrEqual(bitset, permdex + lower);
       } while (lower != nextlower);
-      permutation.add(ordFn.apply(permdex + lower));
-      bitset |= bit;
+      permdex += lower;
+      permutation.add(ordFn.apply(permdex));
+      bitset |= 1L << permdex;
     }
   }
 
-  private static int below(int ord, long bitset) {
-    return Long.bitCount(bitset & ((1L<<ord) - 1));
+  private static int belowOrEqual(long bitset, int ord) {
+    if (ord >= 64) {
+      throw new IllegalArgumentException();
+    }
+    long mask = ord == 63 ? -1 : ((1L << (ord + 1)) - 1);
+    return Long.bitCount(bitset & mask);
   }
 
   BigInteger encode(int[] radixes) {
