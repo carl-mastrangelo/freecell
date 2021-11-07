@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id "me.champeau.gradle.jmh" version "0.5.2"
+    id "me.champeau.jmh" version "0.6.6"
 }
 
 apply plugin: 'idea'
@@ -29,7 +29,13 @@ jmh {
     warmup = "1s"
     fork = 1
     warmupIterations = 10
-    include = ["LogBenchmark"]
+    //include = ["LogBenchmark"]
+    //duplicateClassesStrategy = 'exclude'
+}
+
+jmhJar {
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 java {
