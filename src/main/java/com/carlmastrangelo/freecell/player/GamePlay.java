@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 import java.util.random.RandomGenerator;
 import javax.annotation.Nullable;
@@ -28,7 +29,7 @@ import javax.annotation.Nullable;
 final class GamePlay {
 
   private final long maxMoves;
-  private final ToDoubleFunction<? super FreeCell> scorer;
+  private final ToDoubleBiFunction<? super FreeCell, ? super GamePlayer.MoveList> scorer;
   private final Reference<Map<FreeCell, Integer>> visitedGames = new SoftReference<>(new HashMap<>());
   private final Queue<GamePlayer.GameProgress> nextGames;
   private final int bestMoveCount;
@@ -40,8 +41,8 @@ final class GamePlay {
 
   GamePlay(
       GamePlayer.GameProgress initialGameProgress, long maxMoves, Comparator<GamePlayer.GameProgress> comparator,
-      ToDoubleFunction<? super FreeCell> scorer, int bestMoveCount, @Nullable RandomGenerator moveShuffler,
-      @Nullable ProgressReporter reporter) {
+      ToDoubleBiFunction<? super FreeCell, ? super GamePlayer.MoveList> scorer, int bestMoveCount,
+      @Nullable RandomGenerator moveShuffler, @Nullable ProgressReporter reporter) {
     this.nextGames = new PriorityQueue<>(1000, comparator.reversed());
     this.nextGames.add(Objects.requireNonNull(initialGameProgress));
     this.maxMoves = maxMoves;
@@ -111,10 +112,11 @@ final class GamePlay {
           continue;
         }
         reporter.gameSeen();
-        double score = scorer.applyAsDouble(postGame);
+        var postMoves = preMoves.branch(move);
+        double score = scorer.applyAsDouble(postGame, postMoves);
 
         GamePlayer.GameProgress nextGameProgress =
-            new GamePlayer.GameProgress(postGame, score, preMoves.branch(move));
+            new GamePlayer.GameProgress(postGame, score, postMoves);
         if (postGame.gameWon()) {
           return new GameResult(Status.SUCCESS, nextGameProgress);
         } else if (couldBeatBestMoves(nextGameProgress)) {

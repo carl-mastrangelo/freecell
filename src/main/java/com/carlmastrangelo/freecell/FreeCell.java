@@ -1,5 +1,6 @@
 package com.carlmastrangelo.freecell;
 
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 public sealed interface FreeCell permits ForkFreeCell {
@@ -34,6 +35,8 @@ public sealed interface FreeCell permits ForkFreeCell {
   FreeCell moveToTableauFromFreeCell(int dstTableauCol, int freeCol);
 
   boolean canMoveToTableauFromFreeCell(int dstTableauCol, int freeCol);
+
+  void readTableau(Collection<? super Card> column, int tableauCol);
 
   @Nullable
   Card topHomeCell(Suit suit);

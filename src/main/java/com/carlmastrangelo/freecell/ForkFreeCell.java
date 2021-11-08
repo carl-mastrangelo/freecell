@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -410,6 +411,16 @@ public final class ForkFreeCell implements FreeCell {
       return true;
     }
     return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
+  }
+
+  @Override
+  public void readTableau(Collection<? super Card> column, int tableauCol) {
+    assert tableauCol >= 0 && tableauCol < TABLEAU_COLS;
+    int colRoot = tabRoot(tableauCol);
+    byte cardId;
+    while (++colRoot != cardIds.length && (cardId = cardIds[colRoot]) != EMPTY) {
+      column.add(ALL_CARDS_ID[cardId]);
+    }
   }
 
   @Override

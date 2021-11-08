@@ -1,5 +1,6 @@
 package com.carlmastrangelo.freecell.player;
 
+import static com.carlmastrangelo.freecell.FreeCell.FREE_CELLS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -12,6 +13,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -43,7 +45,7 @@ public final class GamePlayer {
     for (int i = 0; ;i++) {
       var res = new GamePlay(
           new GameProgress(game, 0, new MoveList(null, 0, null)),
-          25_000_000,
+          5_000_000,
           GameComparator.INSTANCE,
           GamePlayer::score,
           best,
@@ -72,7 +74,7 @@ public final class GamePlayer {
 
   private static String describeGame(FreeCell game, GameProgress gameState) {
     var sb = new StringBuilder();
-    sb.append(gameState.moves.totalMoves).append(" moves to win\n");
+
     sb.append(game);
     var deque = new ArrayDeque<Move>();
     MoveList list = gameState.moves();
@@ -87,6 +89,7 @@ public final class GamePlayer {
       game = move.play(game);
       sb.append(game);
     }
+    sb.append("\n").append(gameState.moves.totalMoves).append(" moves to win\n");
     return sb.toString();
   }
 
@@ -220,7 +223,7 @@ public final class GamePlayer {
 
 
 
-  private static double score(FreeCell game)  {
+  private static double score(FreeCell game, MoveList moves)  {
     double sum = 0;
     int[] parts = new int[4];
     for (Suit suit : Suit.values()) {
@@ -232,8 +235,29 @@ public final class GamePlayer {
     for (int i =0; i < 4; i++) {
       var += Math.pow(parts[i] - sum/4, 2);
     }
+    Deque<Card> column = new ArrayDeque<>(24);
+    int diff = 0;
+    for (int i = 0; i < FREE_CELLS; i++) {
+      if (game.peekFreeCell(i) == null) {
+        sum += 0.15;
+      }
+    }
+    for (int col = 0; col < FreeCell.TABLEAU_COLS; col++) {
+      game.readTableau(column, col);
+      if (column.isEmpty()) {
+        sum += 0.15;
+      }
+      while (!column.isEmpty()) {
+        Card card = column.removeFirst();
+        if (parts[card.suit().ordinal()] + 1 == card.rank().num()) {
+          diff += Math.pow(column.size(), 1.5);
+          column.clear();
+        }
+      }
+    }
 
-    return sum - Math.sqrt(var);
+
+    return (sum - Math.sqrt(var) - Math.sqrt(diff) / 4)/moves.totalMoves();
   }
 
   private static List<Card> parse(String ... symbols) {
