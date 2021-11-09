@@ -19,57 +19,43 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.random.RandomGenerator;
 import java.util.random.RandomGeneratorFactory;
 import javax.annotation.Nullable;
+import org.HdrHistogram.ConcurrentHistogram;
+import org.HdrHistogram.Histogram;
 
 public final class GamePlayer {
 
-  public static void main(String [] args) {
+  public static void main(String [] args) throws Exception {
     var rngf = RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of("L64X256MixRandom");
-    RandomGenerator.SplittableGenerator rng = rngf.create(1);
-    GamePlayer gp = new GamePlayer(ForkFreeCell.dealDeck(rng));
-    var prog = gp.reportProgress(Executors.newSingleThreadScheduledExecutor(r -> {
-      var t = new Thread(r);
-      t.setDaemon(true);
-      return t;
-    }), Duration.ofSeconds(5));
-    var game = ForkFreeCell.dealDeck(rngf.create(6));
-    int best = Integer.MAX_VALUE;
-    for (int i = 0; ;i++) {
-      var res = new GamePlay(
-          new GameProgress(game, 0, new MoveList(null, 0, null)),
-          5_000_000,
-          GameComparator.INSTANCE,
-          GamePlayer::score,
-          best,
-          rngf.create(i),
-          new GamePlay.ProgressReporter() {
-            @Override
-            public void movePlayed() {
-              gp.gamesPlayed.increment();
-            }
 
-            @Override
-            public void gameSeen() {
-              gp.gamesSeen.increment();
-            }
-          }
-      ).play();
-      if (res.status() == GamePlay.Status.SUCCESS) {
-        System.out.println(describeGame(game, res.gameProgress()));
-        best = Math.min(best, res.gameProgress().moves().totalMoves());
-      } else {
-        System.out.println(res);
-      }
-    }
-    // prog.cancel(true);
+    ForkFreeCell game = ForkFreeCell.dealDeck(parse("AS", "AH"), parse(), parse(
+        "6C", "7D", "QC", "AD", "9D", "5D", "9H", "9C",
+        "3S", "XS", "AC", "8H", "6H", "8C", "7C", "QD",
+        "4S", "XC", "8S", "5H", "7H", "3D", "JC", "KS",
+        "4D", "JS", "QS", "QH", "4H", "3C", "2C", "XH",
+        "KH", "JD", "2S", "5S", "JH", "9S", null, "4C",
+        "8D", "6D", "2H", "5C", "KC", "2D", null, "7S",
+        "3H", "KD", "XD", "6S", null, null, null, null,
+        null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null));
+
+
+    GamePlayer gp = new GamePlayer(game, Executors.newSingleThreadScheduledExecutor());
+
+    gp.start();
   }
 
   private static String describeGame(FreeCell game, GameProgress gameState) {
@@ -93,54 +79,227 @@ public final class GamePlayer {
     return sb.toString();
   }
 
+  private final ScheduledExecutorService scheduler;
   private final ForkJoinPool pool = ForkJoinPool.commonPool();
+  private final BlockingQueue<GamePlayArgs> nextGames = new LinkedBlockingQueue<>();
 
-  private final LongAdder gamesPlayed = new LongAdder();
-  private final LongAdder gamesSeen = new LongAdder();
+  private final ProgressReporter progressReporter = new ProgressReporter();
+  private final FreeCell startGame;
 
-  private final AtomicReference<GameProgress> bestGameMoves = new AtomicReference<>();
+  private final RandomGeneratorFactory<RandomGenerator.SplittableGenerator> randomFactory =
+      RandomGeneratorFactory.of("L64X256MixRandom");
 
-  GamePlayer(FreeCell startGame) {
-  Objects.requireNonNull(startGame);
+  GamePlayer(FreeCell startGame, ScheduledExecutorService scheduler) {
+    this.startGame = Objects.requireNonNull(startGame);
+    this.scheduler = Objects.requireNonNull(scheduler);
   }
 
-  ScheduledFuture<?> reportProgress(ScheduledExecutorService scheduler, Duration frequency) {
-    final class ProgressReporter implements Runnable {
-      private long lastRun = System.nanoTime();
+  void start() throws Exception {
+    var frequency = Duration.ofSeconds(5);
+    scheduler.scheduleAtFixedRate(progressReporter, frequency.toNanos(), frequency.toNanos(), NANOSECONDS);
 
-      private long lastGamesPlayed;
-      private long lastGamesSeen;
+    var rng = randomFactory.create(6);
+    int bestMovesCount = Integer.MAX_VALUE;
+    int maxMoves = 5_000_000;
+    BlockingQueue<PlayTask> tasks = new LinkedBlockingQueue<>();
+    for (int i = 0; i < Runtime.getRuntime().availableProcessors() * 10; i++) {
+      var gameGameArgs = new GamePlayArgs(
+          new GameProgress(startGame, Double.MIN_VALUE, new MoveList(null, 0, null)),
+          maxMoves,
+          bestMovesCount,
+          rng.split());
+      PlayTask res = (PlayTask) pool.submit(new PlayTask(gameGameArgs, 1));
+      tasks.add(res);
+    }
 
-      @Override
-      public synchronized void run() {
-        long now = System.nanoTime();
-        long played = gamesPlayed.sum();
-        long seen = gamesSeen.sum();
+    while (true) {
+      var task = tasks.take();
+      GamePlay.GameResult gameResult = task.get();
+      switch (gameResult.status()) {
+        case SUCCESS -> {
+          var bestProgress = gameResult.gameProgress();
+          if (bestProgress.moves().totalMoves() <= bestMovesCount) {
+            bestMovesCount = bestProgress.moves().totalMoves();
+            maxMoves /= 2;
+          }
 
-        long playedDiff = played - lastGamesPlayed;
-        lastGamesPlayed = played;
-        long seenDiff = seen - lastGamesSeen;
-        lastGamesSeen = seen;
-        double nanosDiff = now - lastRun;
-        lastRun = now;
-
-        long playedPerSecond = (long)(playedDiff / nanosDiff * SECONDS.toNanos(1));
-        long seenPerSecond = (long)(seenDiff / nanosDiff * SECONDS.toNanos(1));
-        System.out.println(
-            "Seen " + seen + " (" + seenPerSecond + "/s) Played " + played + " (" + playedPerSecond + "/s)");
-                //+ " Pending " + nextGames.size() + " Cached: " + visitedGames.size());
-
-        //visitedGames.clear();
-        //GameProgress next = nextGames.peek();
-        //System.out.println("Next to try: " + next + "\n");
-        GameProgress next = bestGameMoves.get();
-        if (next != null) {
-          System.out.println("Best: " + next.moves().totalMoves());
+          System.out.println(describeGame(startGame, bestProgress));
         }
+        case UNWINNABLE -> {
+          maxMoves = task.args.maxPlays() * 5 / 4;
+        }
+        case INTERRUPTED -> throw new InterruptedException();
+        case MAX_PLAYS -> {
+          maxMoves = task.args.maxPlays() * 5 / 4;
+        }
+      };
+      var gameGameArgs = new GamePlayArgs(task.args.gameProgress(), maxMoves, bestMovesCount, rng.split());
+      PlayTask res = (PlayTask) pool.submit(new PlayTask(gameGameArgs, 1));
+      tasks.add(res);
+    }
+  }
+
+  private final class ProgressReporter implements Runnable, GamePlay.ProgressReporter {
+
+    private final LongAdder gamesPlayed = new LongAdder();
+    private final LongAdder gamesSeen = new LongAdder();
+
+    private final LongAdder roundsStarted = new LongAdder();
+    private final LongAdder roundsFinished = new LongAdder();
+
+    private long lastRun = System.nanoTime();
+
+    private long lastMovesPlayed;
+    private long lastGamesSeen;
+
+    private final Histogram moveHistogram = new ConcurrentHistogram(4000, 3);
+
+    @Override
+    public void movePlayed() {
+      gamesPlayed.increment();
+    }
+
+    @Override
+    public void gameSeen() {
+      gamesSeen.increment();
+    }
+
+    @Override
+    public void run() {
+      long now = System.nanoTime();
+      long played = gamesPlayed.sum();
+      long seen = gamesSeen.sum();
+      long started = roundsStarted.sum();
+      long ended = roundsFinished.sum();
+
+      long playedDiff = played - lastMovesPlayed;
+      lastMovesPlayed = played;
+      long seenDiff = seen - lastGamesSeen;
+      lastGamesSeen = seen;
+      double nanosDiff = now - lastRun;
+      lastRun = now;
+
+      long playedPerSecond = (long)(playedDiff / nanosDiff * SECONDS.toNanos(1));
+      long seenPerSecond = (long)(seenDiff / nanosDiff * SECONDS.toNanos(1));
+
+      System.out.println(
+          "Seen " + seen + " (" + seenPerSecond + "/s) Played " + played + " (" + playedPerSecond + "/s)");
+      System.out.println(
+          "Started " + started + " ended " + ended + " (" + (started - ended) + ")");
+      //System.out.println(moveHistogram);
+    }
+  }
+
+  private record GamePlayArgs(
+      GameProgress gameProgress, int maxPlays, int bestMovesCount, RandomGenerator.SplittableGenerator rng) {
+    GamePlayArgs {
+      if (maxPlays <= 0) {
+        throw new IllegalArgumentException();
+      }
+      if (bestMovesCount <= 0) {
+        throw new IllegalArgumentException();
       }
     }
-    return scheduler.scheduleAtFixedRate(new ProgressReporter(), frequency.toNanos(), frequency.toNanos(), NANOSECONDS);
+
+    GamePlayArgs split() {
+      return new GamePlayArgs(gameProgress, maxPlays, bestMovesCount, rng.split());
+    }
   }
+
+  private final class PlayTask extends RecursiveTask<GamePlay.GameResult> {
+
+    private final GamePlayArgs args;
+    private final int depth;
+
+    PlayTask(GamePlayArgs args, int depth) {
+      this.args = Objects.requireNonNull(args);
+      this.depth = depth;
+    }
+
+    @Override
+    protected GamePlay.GameResult compute() {
+      try {
+        progressReporter.roundsStarted.add(1);
+        return computeInternal();
+      } finally{
+        progressReporter.roundsFinished.add(1);
+      }
+    }
+
+    private GamePlay.GameResult computeInternal() {
+
+      GameProgress start = args.gameProgress();
+      GamePlay gamePlay = new GamePlay(
+          start,
+          args.maxPlays(),
+          GameComparator.INSTANCE,
+          GamePlayer::score,
+          args.bestMovesCount(),
+          args.rng(),
+          progressReporter,
+          progressReporter.moveHistogram);
+      GamePlay.GameResult result = gamePlay.play();
+      return switch (result.status()) {
+        case SUCCESS -> {
+          var gameProgress = result.gameProgress();
+          if (gameProgress.moves().totalMoves() >= args.bestMovesCount()) {
+            yield result;
+          }
+          List<GameProgress> samples = sampleGames(args.gameProgress(), gameProgress);
+          List<PlayTask> forks = new ArrayList<>(samples.size());
+          for (GameProgress sample : samples) {
+            var task =
+                new PlayTask(
+                    new GamePlayArgs(
+                        sample,
+                        args.maxPlays() / (1 + sample.moves().totalMoves()),
+                        gameProgress.moves().totalMoves() - 1,
+                        args.rng().split()),
+                    depth + 1);
+            task.fork();
+            forks.add(task);
+          }
+          GamePlay.GameResult best = result;
+          for (PlayTask task : forks) {
+            var gameProgressChild = task.join();
+            if (gameProgressChild.status() == GamePlay.Status.SUCCESS) {
+              if (gameProgressChild.gameProgress().moves().totalMoves() < best.gameProgress().moves().totalMoves()) {
+                best = gameProgressChild;
+              }
+            }
+          }
+          yield best;
+        }
+        case INTERRUPTED -> result;
+        case MAX_PLAYS -> result;
+        case UNWINNABLE -> result;
+      };
+    }
+  }
+
+  private static List<GameProgress> sampleGames(GameProgress initialGame, GameProgress destinationGame) {
+    Deque<MoveList> moveLists = new ArrayDeque<>();
+
+    for (MoveList fullMovesList = destinationGame.moves();
+         fullMovesList.totalMoves() != initialGame.moves().totalMoves(); fullMovesList = fullMovesList.lastMove()) {
+      moveLists.addFirst(fullMovesList);
+    }
+    int i = 0;
+    List<GameProgress> samples = new ArrayList<>();
+    GameProgress gameProgress = initialGame;
+    for (MoveList moveList : moveLists) {
+      Move move = moveList.move();
+      FreeCell game = move.play(gameProgress.game());
+      gameProgress = new GameProgress(game, Double.MIN_VALUE, moveList);
+      i++;
+      if ((i & (i-1)) == 0) {
+        samples.add(gameProgress);
+      }
+    }
+    return samples;
+  }
+
+
 
   private static final class GameComparator implements Comparator<GameProgress> {
     static GameComparator INSTANCE = new GameComparator();
@@ -159,30 +318,6 @@ public final class GamePlayer {
       return Integer.compare(thatMoves, thisMoves);
     }
   }
-/*
-  private final class PlayMovesTask implements Runnable {
-
-    private void updateBestGame(GameProgress nextGame) {
-      boolean first;
-      GameProgress currentBest;
-      do {
-        first = false;
-        currentBest = bestGameMoves.get();
-        if (currentBest != null) {
-          System.err.println("SUCCESS " + currentBest.moves().prevMoves());
-          currentBestMoves = Math.min(currentBestMoves, currentBest.moves().prevMoves());
-          if (currentBest.moves().prevMoves() < nextGame.moves().prevMoves()) {
-            break;
-          }
-        } else {
-          first = true;
-        }
-      } while(!bestGameMoves.compareAndSet(currentBest, nextGame));
-      done.set(true);
-      playOnce();
-    }
-  }*/
-
 
   private void play() {
     RandomGenerator rng = new SplittableRandom(2000);
@@ -218,11 +353,7 @@ public final class GamePlayer {
 
     throw new RuntimeException("no moves left");
   }
-
-
-
-
-
+  
   private static double score(FreeCell game, MoveList moves)  {
     double sum = 0;
     int[] parts = new int[4];
@@ -239,25 +370,25 @@ public final class GamePlayer {
     int diff = 0;
     for (int i = 0; i < FREE_CELLS; i++) {
       if (game.peekFreeCell(i) == null) {
-        sum += 0.15;
+        sum += 0.05;
       }
     }
     for (int col = 0; col < FreeCell.TABLEAU_COLS; col++) {
       game.readTableau(column, col);
       if (column.isEmpty()) {
-        sum += 0.15;
+        sum += 0.05;
       }
       while (!column.isEmpty()) {
         Card card = column.removeFirst();
         if (parts[card.suit().ordinal()] + 1 == card.rank().num()) {
-          diff += Math.pow(column.size(), 1.5);
+          diff += Math.pow(column.size(), 2);
           column.clear();
         }
       }
     }
 
 
-    return (sum - Math.sqrt(var) - Math.sqrt(diff) / 4)/moves.totalMoves();
+    return (sum - Math.sqrt(var) - Math.sqrt(diff) / 4) / moves.totalMoves();
   }
 
   private static List<Card> parse(String ... symbols) {

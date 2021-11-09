@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.30'
+    implementation 'org.hdrhistogram:HdrHistogram:2.1.12'
     runtimeOnly 'ch.qos.logback:logback-classic:1.2.3'
 
     compileOnly 'com.google.errorprone:error_prone_core:2.8.1'

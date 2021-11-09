@@ -25,6 +25,8 @@ import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 import java.util.random.RandomGenerator;
 import javax.annotation.Nullable;
+import org.HdrHistogram.Histogram;
+import org.HdrHistogram.IntCountsHistogram;
 
 final class GamePlay {
 
@@ -38,11 +40,12 @@ final class GamePlay {
   private final ProgressReporter reporter;
 
   private final List<Move> movesCache = new ArrayList<>();
+  private final Histogram moveHistogram;
 
   GamePlay(
       GamePlayer.GameProgress initialGameProgress, long maxMoves, Comparator<GamePlayer.GameProgress> comparator,
       ToDoubleBiFunction<? super FreeCell, ? super GamePlayer.MoveList> scorer, int bestMoveCount,
-      @Nullable RandomGenerator moveShuffler, @Nullable ProgressReporter reporter) {
+      @Nullable RandomGenerator moveShuffler, @Nullable ProgressReporter reporter, Histogram moveHistogram) {
     this.nextGames = new PriorityQueue<>(1000, comparator.reversed());
     this.nextGames.add(Objects.requireNonNull(initialGameProgress));
     this.maxMoves = maxMoves;
@@ -56,6 +59,7 @@ final class GamePlay {
       @Override
       public void gameSeen() {}
     };
+    this.moveHistogram = moveHistogram;
   }
 
   interface ProgressReporter {
@@ -63,7 +67,6 @@ final class GamePlay {
     void gameSeen();
   }
 
-  @Nullable
   GameResult play() {
     try {
       return playInternal();
@@ -108,6 +111,7 @@ final class GamePlay {
         FreeCell postGame = move.play(preProgress.game());
         reporter.movePlayed();
         GamePlayer.MoveList preMoves = preProgress.moves();
+        moveHistogram.recordValue(preMoves.totalMoves() + 1);
         if (!visitGame(postGame, preMoves.totalMoves() + 1)) {
           continue;
         }
