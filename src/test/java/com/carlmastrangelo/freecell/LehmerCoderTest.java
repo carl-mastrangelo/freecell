@@ -22,7 +22,7 @@ public class LehmerCoderTest {
     var cards = new ArrayList<>(CARDS_BY_ORD);
     var rand = new Random(1);
     var coder = new LehmerCoder(CARD_COUNT);
-    for (int i = 0; i < 10000000; i++) {
+    for (int i = 0; i < 10000; i++) {
       Collections.shuffle(cards, rand);
 
       //int[] permdexes = coder.permdexes(new ArrayList<>(cards), CARDS_BY_ORD::get);

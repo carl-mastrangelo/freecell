@@ -16,9 +16,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.IntBinaryOperator;
-import java.util.function.IntFunction;
-import java.util.function.IntUnaryOperator;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -98,7 +95,7 @@ public final class ForkFreeCell implements FreeCell {
   @Override
   public Card topHomeCell(Suit suit) {
     byte cardId = cardIds[suit.ordinal()];
-    if (cardId == EMPTY) {
+    if (isEmpty(cardId)) {
       return null;
     }
     return ALL_CARDS_ID[cardId];
@@ -135,6 +132,8 @@ public final class ForkFreeCell implements FreeCell {
   private final int[] tableauRoot;
 
   private ForkFreeCell(byte[] cardIds, int[] tableauRoot) {
+    assert cardIds.length <= 64;
+    assert tableauRoot.length == TABLEAU_COLS;
     this.cardIds = cardIds;
     this.tableauRoot = tableauRoot;
     if (false && !isSorted()) {
@@ -150,7 +149,7 @@ public final class ForkFreeCell implements FreeCell {
   @Override
   public boolean gameWon() {
     for (int i = 0; i < HOME_CELLS; i++) {
-      if (cardIds[i] == EMPTY || rankOrd(cardIds[i]) != Rank.KING_ORD) {
+      if (isEmpty(cardIds[i]) || rankOrd(cardIds[i]) != Rank.KING_ORD) {
         return false;
       }
     }
@@ -161,10 +160,10 @@ public final class ForkFreeCell implements FreeCell {
   public int minMovesToWin() {
     int sum = 0;
     for (int i = 0; i < HOME_CELLS; i++) {
-      if (cardIds[i] == EMPTY) {
+      if (isEmpty(cardIds[i])) {
         sum += RANK_COUNT;
       } else {
-        sum += Rank.KING_ORD - rankOrd(cardIds[i]) + 1;
+        sum += Rank.KING_ORD - rankOrd(cardIds[i]);
       }
     }
     return sum;
@@ -191,7 +190,7 @@ public final class ForkFreeCell implements FreeCell {
     // TODO: test if this can be called with empty
     int srcTabPos = tabTop(tableauCol);
     byte cardId = cardIds[srcTabPos];
-    if (cardId == EMPTY) {
+    if (isEmpty(cardId)) {
       return false;
     }
     return canMoveHome(cardId);
@@ -219,13 +218,13 @@ public final class ForkFreeCell implements FreeCell {
       return false;
     }
     byte cardId = cardIds[HOME_CELLS + freeCol];
-    assert cardId != EMPTY;
+    assert !isEmpty(cardId);
     return canMoveHome(cardId);
   }
 
   private boolean canMoveHome(byte cardId) {
     byte homeCardId = cardIds[suitOrd(cardId)];
-    if (homeCardId == EMPTY && rankOrd(cardId) == Rank.ACE_ORD) {
+    if (isEmpty(homeCardId) && rankOrd(cardId) == Rank.ACE_ORD) {
       return true;
     }
     return homeCardId + 1 == cardId;
@@ -241,7 +240,7 @@ public final class ForkFreeCell implements FreeCell {
     // In the array [H H H H F F R], R is the tableau root.  Add 1 to the length
     System.arraycopy(cardIds, 0, newCardIds, 0, newLastFreePos + 1);
     insertFreeCard(newCardIds, cardId);
-    assert newCardIds[newLastFreePos] != EMPTY;
+    assert !isEmpty(newCardIds[newLastFreePos]);
     // The final argument would normally be (topTabCardPos - newLastFreePos + 1), but we will overwrite the top tab
     // card in the next call.
     System.arraycopy(cardIds, newLastFreePos, newCardIds, newLastFreePos + 1, topTabCardPos - newLastFreePos);
@@ -258,7 +257,7 @@ public final class ForkFreeCell implements FreeCell {
     assert tableauCol >= 0 && tableauCol < TABLEAU_COLS;
     int srcTabPos = tabTop(tableauCol);
     byte cardId = cardIds[srcTabPos];
-    if (cardId == EMPTY) {
+    if (isEmpty(cardId)) {
       return false;
     }
     return freeCellsUsed() < FREE_CELLS;
@@ -271,14 +270,14 @@ public final class ForkFreeCell implements FreeCell {
   static void insertFreeCard(byte[] cardIds, byte cardId) {
     byte freeCardId;
     int pos = HOME_CELLS;
-    for (; (freeCardId = cardIds[pos]) != EMPTY; pos++) {
+    for (; !isEmpty(freeCardId = cardIds[pos]); pos++) {
       assert freeCardId != cardId;
       if (freeCardId < cardId) {
         cardIds[pos] = cardId;
         cardId = freeCardId;
       }
     }
-    assert freeCardId == EMPTY;
+    assert isEmpty(freeCardId);
     cardIds[pos] = cardId;
   }
 
@@ -293,7 +292,7 @@ public final class ForkFreeCell implements FreeCell {
     // TODO: test
     assert tableauCol >= 0 && tableauCol < TABLEAU_COLS;
     byte cardId = cardIds[tabTop(tableauCol)];
-    if (cardId == EMPTY) {
+    if (isEmpty(cardId)) {
       return null;
     }
     return ALL_CARDS_ID[cardId];
@@ -317,7 +316,7 @@ public final class ForkFreeCell implements FreeCell {
     byte dstCardId = cardIds[dstPos];
     int srcPos = tabTop(srcTableauCol);
     byte srcCardId = checkCardNotEmpty(cardIds[srcPos]);
-    assert dstCardId == EMPTY
+    assert isEmpty(dstCardId)
          || (rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId));
     byte[] newCardIds = new byte[cardIds.length];
     int[] newTableauRoot = tableauRoot.clone();
@@ -371,6 +370,48 @@ public final class ForkFreeCell implements FreeCell {
       return true;
     }
     return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
+  }
+
+  public boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count) {
+    assert dstTableauCol >= 0 && dstTableauCol < TABLEAU_COLS;
+    assert srcTableauCol >= 0 && srcTableauCol < TABLEAU_COLS;
+    assert count > 0 && count <= RANK_COUNT;
+    if (srcTableauCol == dstTableauCol) {
+      return false;
+    }
+    int srcPos = tabTop(srcTableauCol);
+    byte srcCardId = cardIds[srcPos];
+    if (srcCardId == EMPTY) {
+      return false;
+    }
+    int dstPos = tabTop(dstTableauCol);
+    byte dstCardId = cardIds[dstPos];
+    if (dstCardId == EMPTY) {
+      return true;
+    }
+    return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
+  }
+
+  @VisibleForTesting
+  int stackSize(int tableauCol) {
+    assert tableauCol >= 0 && tableauCol < TABLEAU_COLS;
+    final int tabTop = tabTop(tableauCol);
+    final int tabRoot = tabRoot(tableauCol);
+
+    int columnSize = tabTop - tabRoot;
+    if (columnSize == 0 || columnSize == 1) {
+      return columnSize;
+    }
+    int count = 1;
+    for (int pos = tabTop; pos >= tabRoot + 1; pos--) {
+      byte cardId = cardIds[pos];
+      byte underCardId = cardIds[pos - 1];
+      if (colorOrd(cardId) == colorOrd(underCardId) || rankOrd(cardId) != rankOrd(underCardId) - 1) {
+        break;
+      }
+      count++;
+    }
+    return count;
   }
 
 
@@ -483,8 +524,8 @@ public final class ForkFreeCell implements FreeCell {
   }
 
   private static int suitOrd(byte cardId) {
-    assert (cardId >> 4) < SUIT_COUNT;
-    assert (cardId >> 4) >= 0;
+    assert (cardId >>> 4) < SUIT_COUNT;
+    assert (cardId >>> 4) >= 0;
     return cardId >> 4;
   }
 
@@ -518,6 +559,9 @@ public final class ForkFreeCell implements FreeCell {
     return cards;
   }
 
+  /**
+   * Returns the index of top most card of this column, or the tab root if there are no cards in the column.
+   */
   private int tabTop(int col) {
     if (col + 1 == TABLEAU_COLS) {
       return cardIds.length - 1;
@@ -525,6 +569,9 @@ public final class ForkFreeCell implements FreeCell {
     return tabRoot(col + 1) - 1;
   }
 
+  /**
+   * Returns the index of the {@link #EMPTY} card root of this column.
+   */
   private int tabRoot(int col) {
     return tableauRoot[col];
   }
@@ -593,5 +640,9 @@ public final class ForkFreeCell implements FreeCell {
       }
     }
     return true;
+  }
+
+  private static boolean isEmpty(byte cardId) {
+    return cardId == EMPTY;
   }
 }

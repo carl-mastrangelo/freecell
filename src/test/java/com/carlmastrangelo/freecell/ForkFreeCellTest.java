@@ -135,10 +135,11 @@ public class ForkFreeCellTest {
 
   @Test
   public void moveToTableauCellFromFree() {
-    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
+    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(4));
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
+    game.stackSize(4);
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
