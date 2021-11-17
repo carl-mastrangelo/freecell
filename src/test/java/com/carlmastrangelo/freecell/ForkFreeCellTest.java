@@ -6,10 +6,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.truth.Truth;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.SplittableRandom;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -115,19 +117,19 @@ public class ForkFreeCellTest {
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToTableauFromTableau(1, 0);
+    game = game.moveToTableauFromTableau(0, 1, 2);
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToTableauFromTableau(0, 1);
+    game = game.moveToTableauFromTableau(0, 1, 1);
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToTableauFromTableau(1, 0);
+    game = game.moveToTableauFromTableau(1, 0, 1);
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToTableauFromTableau(1, 0);
+    game = game.moveToTableauFromTableau(1, 0, 1);
     System.out.println(game.toString());
 
     assertFalse(game.canMoveToFreeCellFromTableau(0));
@@ -139,7 +141,7 @@ public class ForkFreeCellTest {
     System.out.println(game.toString());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game.stackSize(4);
+
     game = game.moveToFreeCellFromTableau(0);
     System.out.println(game.toString());
 
@@ -188,4 +190,39 @@ public class ForkFreeCellTest {
     ForkFreeCell.insertFreeCard(cardIds, (byte) 2);
     assertArrayEquals(new byte[]{EMPTY, EMPTY, EMPTY, EMPTY, 2}, cardIds);
   }
+
+  @Test
+  public void par() {
+    String d = """
+                🂺         ||
+           🂺  🃘  🃉  🃃 __  🂸  🂶  🂧
+            🂽  🃎  🃈  🂦  __  🂴  🃂  🂭
+            🂱  🂵  🂪  🃊  __  🃗  🃇  🃑
+            🂥  🂷  🃒  🂤  __  🂲  🂡  🂣
+            🂹  🃚  🃅  🃛 __  🃔  🂻  🂨
+            🂫  🃙  🃋  🃞  __  🃕  🂳  🂾
+            🃁  🂢  🃆  🃖                
+           """;
+    parse(d);
+  }
+
+  static ForkFreeCell parse(String board) {
+    Scanner scanner = new Scanner(board);
+    String header = scanner.nextLine();
+    int pipes = header.indexOf("||");
+    if (pipes == -1) {
+      throw new IllegalArgumentException();
+    }
+   var homeCards =
+       Arrays.stream(header.substring(0, pipes).split("\s+"))
+           .filter(s -> !s.isEmpty()).map(Card::ofSymbol).collect(Collectors.toList());
+    var freeCards =
+        Arrays.stream(header.substring(pipes + 2).split("\s+"))
+            .filter(s -> !s.isEmpty()).map(Card::ofSymbol).collect(Collectors.toList());
+
+    return null;
+  }
+
+
+
 }

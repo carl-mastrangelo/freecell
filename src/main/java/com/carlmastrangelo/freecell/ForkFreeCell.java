@@ -310,11 +310,11 @@ public final class ForkFreeCell implements FreeCell {
   }
 
   @Override
-  public ForkFreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
-    assert canMoveToTableauFromTableau(dstTableauCol, srcTableauCol);
+  public ForkFreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count) {
+    assert canMoveToTableauFromTableau(dstTableauCol, srcTableauCol, count);
     int dstPos = tabTop(dstTableauCol);
     byte dstCardId = cardIds[dstPos];
-    int srcPos = tabTop(srcTableauCol);
+    int srcPos = tabTop(srcTableauCol) - count + 1;
     byte srcCardId = checkCardNotEmpty(cardIds[srcPos]);
     assert isEmpty(dstCardId)
          || (rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId));
@@ -322,30 +322,30 @@ public final class ForkFreeCell implements FreeCell {
     int[] newTableauRoot = tableauRoot.clone();
     /*
       Two cases:
-      [ a b c d S e f g D h k]
-      [ a b c d e f g D S h k]
+      [ a b c d S S e f g D h k]
+      [ a b c d e f g D S S h k]
                 |     | + ---
 
 
-      [ a b c d D e f g S h k]
-      [ a b c d D S e f g h k]
+      [ a b c d D e f g S S h k]
+      [ a b c d D S S e f g h k]
                   + |   | ---
      */
     if (dstPos > srcPos) {
       System.arraycopy(cardIds, 0, newCardIds, 0, srcPos);
-      System.arraycopy(cardIds, srcPos + 1, newCardIds, srcPos, dstPos - srcPos);
-      newCardIds[dstPos] = srcCardId;
+      System.arraycopy(cardIds, srcPos + count, newCardIds, srcPos, dstPos - srcPos - count + 1);
+      System.arraycopy(cardIds, srcPos, newCardIds, dstPos - count + 1, count);
       System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + 1, newCardIds.length - dstPos - 1);
       for (int col = srcTableauCol + 1; col <= dstTableauCol; col++) {
-        newTableauRoot[col]--;
+        newTableauRoot[col] -= count;
       }
     } else {
       System.arraycopy(cardIds, 0, newCardIds, 0, dstPos + 1);
-      newCardIds[dstPos + 1] = srcCardId;
-      System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + 2, srcPos - dstPos - 1);
-      System.arraycopy(cardIds, srcPos + 1, newCardIds, srcPos + 1, newCardIds.length - srcPos - 1);
+      System.arraycopy(cardIds, srcPos, newCardIds, dstPos + 1, count);
+      System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + count + 1, srcPos - dstPos - 1);
+      System.arraycopy(cardIds, srcPos + count, newCardIds, srcPos + count, newCardIds.length - (srcPos + count) - 1);
       for (int col = dstTableauCol + 1; col <= srcTableauCol; col++) {
-        newTableauRoot[col]++;
+        newTableauRoot[col] += count;
       }
     }
 
@@ -372,6 +372,7 @@ public final class ForkFreeCell implements FreeCell {
     return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
   }
 
+  @Override
   public boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count) {
     assert dstTableauCol >= 0 && dstTableauCol < TABLEAU_COLS;
     assert srcTableauCol >= 0 && srcTableauCol < TABLEAU_COLS;
@@ -379,11 +380,36 @@ public final class ForkFreeCell implements FreeCell {
     if (srcTableauCol == dstTableauCol) {
       return false;
     }
-    int srcPos = tabTop(srcTableauCol);
-    byte srcCardId = cardIds[srcPos];
-    if (srcCardId == EMPTY) {
+
+    int srcTabTop = tabTop(srcTableauCol);
+    int srcTabRoot = tabRoot(srcTableauCol);
+    int srcStackSize = stackSize(srcTabRoot, srcTabTop);
+    if (srcStackSize < count) {
       return false;
     }
+    int srcPos = srcTabTop - count + 1;
+    byte srcCardId = cardIds[srcPos];
+    assert !isEmpty(srcCardId);
+
+    int emptyUsableCols = 0;
+    for (int col = 0; col < TABLEAU_COLS; col++) {
+      if (col == dstTableauCol || col == srcTableauCol) {
+        continue;
+      }
+      if (tabTop(col) == tabRoot(col)) {
+        emptyUsableCols++;
+      }
+    }
+    int freeCellsAvailable = FREE_CELLS - freeCellsUsed();
+    int movableCards = freeCellsAvailable + 1;
+    while (emptyUsableCols != 0) {
+      movableCards *= 2;
+      emptyUsableCols--;
+    }
+    if (count > movableCards) {
+      return false;
+    }
+
     int dstPos = tabTop(dstTableauCol);
     byte dstCardId = cardIds[dstPos];
     if (dstCardId == EMPTY) {
@@ -392,18 +418,20 @@ public final class ForkFreeCell implements FreeCell {
     return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
   }
 
-  @VisibleForTesting
-  int stackSize(int tableauCol) {
-    assert tableauCol >= 0 && tableauCol < TABLEAU_COLS;
-    final int tabTop = tabTop(tableauCol);
-    final int tabRoot = tabRoot(tableauCol);
+  @Override
+  public int stackSize(int tableauCol) {
+    int tabTop = tabTop(tableauCol);
+    int tabRoot = tabRoot(tableauCol);
+    return stackSize(tabRoot, tabTop);
+  }
 
+  private int stackSize(int tabRoot, int tabTop) {
     int columnSize = tabTop - tabRoot;
     if (columnSize == 0 || columnSize == 1) {
       return columnSize;
     }
     int count = 1;
-    for (int pos = tabTop; pos >= tabRoot + 1; pos--) {
+    for (int pos = tabTop; pos > tabRoot + 1; pos--) {
       byte cardId = cardIds[pos];
       byte underCardId = cardIds[pos - 1];
       if (colorOrd(cardId) == colorOrd(underCardId) || rankOrd(cardId) != rankOrd(underCardId) - 1) {

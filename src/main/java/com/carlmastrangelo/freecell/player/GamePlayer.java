@@ -40,17 +40,27 @@ public final class GamePlayer {
 
     ForkFreeCell game = ForkFreeCell.dealDeck(parse("AS", "AH"), parse(), parse(
         "6C", "7D", "QC", "AD", "9D", "5D", "9H", "9C",
-        "3S", "XS", "AC", "8H", "6H", "8C", "7C", "QD",
-        "4S", "XC", "8S", "5H", "7H", "3D", "JC", "KS",
-        "4D", "JS", "QS", "QH", "4H", "3C", "2C", "XH",
+        "3S", "TS", "AC", "8H", "6H", "8C", "7C", "QD",
+        "4S", "TC", "8S", "5H", "7H", "3D", "JC", "KS",
+        "4D", "JS", "QS", "QH", "4H", "3C", "2C", "TH",
         "KH", "JD", "2S", "5S", "JH", "9S", null, "4C",
         "8D", "6D", "2H", "5C", "KC", "2D", null, "7S",
-        "3H", "KD", "XD", "6S", null, null, null, null,
+        "3H", "KD", "TD", "6S", null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null));
+
+    //11982
+    game = ForkFreeCell.dealDeck(parse(), parse(), parse(
+        "AH", "AS", "4H", "AC", "2D", "6S", "TS", "JS",
+        "3D", "3H", "QS", "QC", "8S", "7H", "AD", "KS",
+        "KD", "6H", "5S", "4D", "9H", "JH", "9S", "3C",
+        "JC", "5D", "5C", "8C", "9D", "TD", "KH", "7C",
+        "6C", "2C", "TH", "QH", "6D", "TC", "4S", "7S",
+        "JD", "7D", "8H", "9C", "2H", "QD", "4C", "5H",
+        "KC", "8D", "2S", "3S", null, null, null, null));
 
 
     GamePlayer gp = new GamePlayer(game, Executors.newSingleThreadScheduledExecutor());
@@ -100,7 +110,7 @@ public final class GamePlayer {
 
     var rng = randomFactory.create(6);
     int bestMovesCount = Integer.MAX_VALUE;
-    int maxMoves = 5_000_000;
+    long maxMoves = 500_000_000;
     BlockingQueue<PlayTask> tasks = new LinkedBlockingQueue<>();
     for (int i = 0; i < Runtime.getRuntime().availableProcessors() * 10; i++) {
       var gameGameArgs = new GamePlayArgs(
@@ -191,7 +201,7 @@ public final class GamePlayer {
   }
 
   private record GamePlayArgs(
-      GameProgress gameProgress, int maxPlays, int bestMovesCount, RandomGenerator.SplittableGenerator rng) {
+      GameProgress gameProgress, long maxPlays, int bestMovesCount, RandomGenerator.SplittableGenerator rng) {
     GamePlayArgs {
       if (maxPlays <= 0) {
         throw new IllegalArgumentException();
