@@ -41,17 +41,17 @@ sealed interface Move
     }
   }
 
-  record MoveToTableauFromTableau(int dstTableauCol, int srcTableauCol) implements Move {
+  record MoveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count) implements Move {
     @Override
     public FreeCell play(FreeCell game) {
-      return game.moveToTableauFromTableau(dstTableauCol, srcTableauCol);
+      return game.moveToTableauFromTableau(dstTableauCol, srcTableauCol, count);
     }
 
     @Override
     public void describe(StringBuilder sb, FreeCell game) {
       Card srcCard = game.peekTableau(srcTableauCol);
       Card dstCard = game.peekTableau(dstTableauCol);
-      sb.append("Move ").append(srcCard.name());
+      sb.append("Move() ").append(srcCard.name());
       if (dstCard == null) {
         sb.append(" onto empty tableau col ").append(dstTableauCol);
       } else {

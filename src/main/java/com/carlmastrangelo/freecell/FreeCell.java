@@ -2,6 +2,9 @@ package com.carlmastrangelo.freecell;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 public sealed interface FreeCell permits ForkFreeCell {
@@ -71,4 +74,7 @@ public sealed interface FreeCell permits ForkFreeCell {
 
   @Nullable
   Card topHomeCell(Suit suit);
+
+
+  Spliterator<Card> readTableau(int tableauCol);
 }

@@ -16,6 +16,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Consumer;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -343,7 +346,7 @@ public final class ForkFreeCell implements FreeCell {
       System.arraycopy(cardIds, 0, newCardIds, 0, dstPos + 1);
       System.arraycopy(cardIds, srcPos, newCardIds, dstPos + 1, count);
       System.arraycopy(cardIds, dstPos + 1, newCardIds, dstPos + count + 1, srcPos - dstPos - 1);
-      System.arraycopy(cardIds, srcPos + count, newCardIds, srcPos + count, newCardIds.length - (srcPos + count) - 1);
+      System.arraycopy(cardIds, srcPos + count, newCardIds, srcPos + count, newCardIds.length - (srcPos + count));
       for (int col = dstTableauCol + 1; col <= srcTableauCol; col++) {
         newTableauRoot[col] += count;
       }
@@ -442,6 +445,24 @@ public final class ForkFreeCell implements FreeCell {
     return count;
   }
 
+  @Override
+  public Spliterator<Card> readTableau(int tableauCol) {
+    var top = tabTop(tableauCol);
+    var root = tabRoot(tableauCol);
+
+    return new Spliterators.AbstractSpliterator<>(top - root,
+        Spliterator.DISTINCT | Spliterator.ORDERED | Spliterator.SIZED | Spliterator.NONNULL | Spliterator.IMMUTABLE | Spliterator.SUBSIZED) {
+      @Override
+      public boolean tryAdvance(Consumer<? super Card> action) {
+        return false;
+      }
+
+      @Override
+      public Spliterator<Card> trySplit() {
+        return super.trySplit();
+      }
+    };
+  }
 
   @Override
   public ForkFreeCell moveToTableauFromFreeCell(int dstTableauCol, int freeCol) {

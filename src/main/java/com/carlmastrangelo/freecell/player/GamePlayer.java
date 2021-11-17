@@ -53,6 +53,7 @@ public final class GamePlayer {
         null, null, null, null, null, null, null, null));
 
     //11982
+    /*
     game = ForkFreeCell.dealDeck(parse(), parse(), parse(
         "AH", "AS", "4H", "AC", "2D", "6S", "TS", "JS",
         "3D", "3H", "QS", "QC", "8S", "7H", "AD", "KS",
@@ -61,7 +62,7 @@ public final class GamePlayer {
         "6C", "2C", "TH", "QH", "6D", "TC", "4S", "7S",
         "JD", "7D", "8H", "9C", "2H", "QD", "4C", "5H",
         "KC", "8D", "2S", "3S", null, null, null, null));
-
+*/
 
     GamePlayer gp = new GamePlayer(game, Executors.newSingleThreadScheduledExecutor());
 
@@ -90,7 +91,7 @@ public final class GamePlayer {
   }
 
   private final ScheduledExecutorService scheduler;
-  private final ForkJoinPool pool = ForkJoinPool.commonPool();
+  private final ForkJoinPool pool = new ForkJoinPool(1);
   private final BlockingQueue<GamePlayArgs> nextGames = new LinkedBlockingQueue<>();
 
   private final ProgressReporter progressReporter = new ProgressReporter();

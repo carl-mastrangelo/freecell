@@ -181,17 +181,11 @@ final class GamePlay {
       if (game.canMoveToFreeCellFromTableau(srcTableauCol)) {
         moves.add(new Move.MoveToFreeCellFromTableau(srcTableauCol));
       }
-      //int stack = game.stackSize(srcTableauCol);
+      int stack = game.stackSize(srcTableauCol);
       for (int dstTableauCol = 0; dstTableauCol < TABLEAU_COLS; dstTableauCol++) {
-        for (int i = 1; i <= 1; i++) {
-          if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol)) {
-            if (i == 1) {
-              moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol));
-            } else if (i >= 8) {
-              System.out.println("hi");
-              game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol, i);
-            }
-
+        for (int i = 1; i <= stack; i++) {
+          if (game.canMoveToTableauFromTableau(dstTableauCol, srcTableauCol, i)) {
+            moves.add(new Move.MoveToTableauFromTableau(dstTableauCol, srcTableauCol, i));
           }
         }
       }
