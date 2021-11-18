@@ -379,55 +379,65 @@ public final class ForkFreeCell implements FreeCell {
 
     int srcTabTop = tabTop(srcTableauCol);
     int srcTabRoot = tabRoot(srcTableauCol);
-    int srcStackSize = stackSize(srcTabRoot, srcTabTop);
-    if (srcStackSize < count) {
+    if (srcTabTop - srcTabRoot < count) {
       return false;
     }
     int srcPos = srcTabTop - count + 1;
     byte srcCardId = cardIds[srcPos];
     assert !isEmpty(srcCardId);
 
-    int emptyUsableCols = 0;
+    int dstPos = tabTop(dstTableauCol);
+    byte dstCardId = cardIds[dstPos];
+    if (!isEmpty(dstCardId)) {
+      if (rankOrd(dstCardId) - 1 != rankOrd(srcCardId) || colorOrd(dstCardId) == colorOrd(srcCardId)) {
+        return false;
+      }
+    }
+
+    int srcStackSize = stackSize(srcTabRoot, srcTabTop, count);
+    if (srcStackSize < count) {
+      return false;
+    }
+
+    int freeCellsAvailable = FREE_CELLS - freeCellsUsed();
+    int movableCards = freeCellsAvailable + 1;
+    if (movableCards >= count) {
+      return true;
+    }
+
     for (int col = 0; col < TABLEAU_COLS; col++) {
       if (col == dstTableauCol || col == srcTableauCol) {
         continue;
       }
       if (tabTop(col) == tabRoot(col)) {
-        emptyUsableCols++;
+        movableCards *= 2;
+        if (count <= movableCards) {
+          return true;
+        }
       }
     }
-    int freeCellsAvailable = FREE_CELLS - freeCellsUsed();
-    int movableCards = freeCellsAvailable + 1;
-    while (emptyUsableCols != 0) {
-      movableCards *= 2;
-      emptyUsableCols--;
-    }
-    if (count > movableCards) {
-      return false;
-    }
 
-    int dstPos = tabTop(dstTableauCol);
-    byte dstCardId = cardIds[dstPos];
-    if (dstCardId == EMPTY) {
-      return true;
-    }
-    return rankOrd(dstCardId) - 1 == rankOrd(srcCardId) && colorOrd(dstCardId) != colorOrd(srcCardId);
+    return false;
   }
 
   @Override
   public int stackSize(int tableauCol) {
     int tabTop = tabTop(tableauCol);
     int tabRoot = tabRoot(tableauCol);
-    return stackSize(tabRoot, tabTop);
+    return stackSize(tabRoot, tabTop, Integer.MAX_VALUE);
   }
 
-  private int stackSize(int tabRoot, int tabTop) {
+  private int stackSize(int tabRoot, int tabTop, int max) {
+    assert max > 0;
     int columnSize = tabTop - tabRoot;
     if (columnSize == 0 || columnSize == 1) {
       return columnSize;
     }
     int count = 1;
     for (int pos = tabTop; pos > tabRoot + 1; pos--) {
+      if (count == max) {
+        return count;
+      }
       byte cardId = cardIds[pos];
       byte underCardId = cardIds[pos - 1];
       if (colorOrd(cardId) == colorOrd(underCardId) || rankOrd(cardId) != rankOrd(underCardId) - 1) {

@@ -38,19 +38,7 @@ public final class GamePlayer {
   public static void main(String [] args) throws Exception {
     var rngf = RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of("L64X256MixRandom");
 
-    ForkFreeCell game = ForkFreeCell.dealDeck(parse("AS", "AH"), parse(), parse(
-        "6C", "7D", "QC", "AD", "9D", "5D", "9H", "9C",
-        "3S", "TS", "AC", "8H", "6H", "8C", "7C", "QD",
-        "4S", "TC", "8S", "5H", "7H", "3D", "JC", "KS",
-        "4D", "JS", "QS", "QH", "4H", "3C", "2C", "TH",
-        "KH", "JD", "2S", "5S", "JH", "9S", null, "4C",
-        "8D", "6D", "2H", "5C", "KC", "2D", null, "7S",
-        "3H", "KD", "TD", "6S", null, null, null, null,
-        null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null));
+    ForkFreeCell game = ForkFreeCell.dealDeck();
 
     //11982
     /*
@@ -92,7 +80,6 @@ public final class GamePlayer {
 
   private final ScheduledExecutorService scheduler;
   private final ForkJoinPool pool = new ForkJoinPool(1);
-  private final BlockingQueue<GamePlayArgs> nextGames = new LinkedBlockingQueue<>();
 
   private final ProgressReporter progressReporter = new ProgressReporter();
   private final FreeCell startGame;
@@ -111,7 +98,7 @@ public final class GamePlayer {
 
     var rng = randomFactory.create(6);
     int bestMovesCount = Integer.MAX_VALUE;
-    long maxMoves = 500_000_000;
+    long maxMoves = 5_000_000;
     BlockingQueue<PlayTask> tasks = new LinkedBlockingQueue<>();
     for (int i = 0; i < Runtime.getRuntime().availableProcessors() * 10; i++) {
       var gameGameArgs = new GamePlayArgs(
