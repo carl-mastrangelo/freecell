@@ -699,7 +699,7 @@ public final class ForkFreeCell implements FreeCell {
   private static boolean validateGame(byte[] cardIds, int[] tableauRoot) {
     Objects.requireNonNull(cardIds);
     BitSet cards = new BitSet();
-    cards.set(0, 52);
+    cards.set(0, CARD_COUNT);
     for (int i = 0; i < HOME_CELLS; i++) {
       if (isEmpty(cardIds[i])) {
         continue;
@@ -729,27 +729,25 @@ public final class ForkFreeCell implements FreeCell {
     }
     Objects.requireNonNull(tableauRoot);
     BitSet roots = new BitSet();
-    roots.set(0, TABLEAU_COLS);
     if (tableauRoot.length != TABLEAU_COLS) {
       throw new IllegalArgumentException("bad number of tableau column roots " + tableauRoot.length);
     }
-    for (int i = 0; i < tableauRoot.length; i++) {
-      int root = tableauRoot[i];
+    for (int root : tableauRoot) {
       if (root < HOME_CELLS || root >= cardIds.length) {
         throw new ArrayIndexOutOfBoundsException("column root " + root + " out of bounds ");
       }
       if (!isEmpty(cardIds[root])) {
-        throw new IllegalArgumentException("column root " + root + "points to non-empty card " + cardIds[root]);
+        throw new IllegalArgumentException("column root " + root + " points to non-empty card " + cardIds[root]);
       }
-      if (!roots.get(i)) {
+      if (roots.get(root)) {
         throw new IllegalArgumentException("duplicate column root " + root);
       }
-      roots.clear(i);
+      roots.set(root);
     }
     if (tableauRoot[0] - HOME_CELLS > FREE_CELLS) {
       throw new IllegalArgumentException("too many free cells");
     }
-    return roots.isEmpty();
+    return true;
   }
 
   private static void clear(BitSet set, byte cardId) {
