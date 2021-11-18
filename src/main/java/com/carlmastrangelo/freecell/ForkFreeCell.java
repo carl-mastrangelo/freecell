@@ -547,30 +547,28 @@ public final class ForkFreeCell implements FreeCell {
 
   @Override
   public String toString() {
+    final String CRD_SPC = "  ";
+    final String COL_SPC = "   ";
     StringBuilder sb = new StringBuilder();
     for (Suit suit : Suit.SUITS_BY_ORD) {
       Card card = topHomeCell(suit);
-      sb.append(card != null ? card.asciiSymbol() : "  ").append("  ");
+      sb.append(card != null ? card.asciiSymbol() : CRD_SPC).append(COL_SPC);
     }
-    sb.delete(sb.lastIndexOf("  "), sb.length());
-    sb.append("||");
+    sb.delete(sb.lastIndexOf(COL_SPC), sb.length());
+    sb.append(" | ");
     for (int i = 0; i < FREE_CELLS; i++) {
       Card card = peekFreeCell(i);
-      sb.append(card != null ? card.asciiSymbol() : "  ").append("  ");
+      sb.append(card != null ? card.asciiSymbol() : CRD_SPC).append(COL_SPC);
     }
-    sb.delete(sb.lastIndexOf("  "), sb.length());
+    sb.delete(sb.lastIndexOf(COL_SPC), sb.length());
 
-    boolean output = true;
-    for (int row = 0; output; row++) {
-      output = false;
+    boolean done = false;
+    for (int row = 0; !done; row++) {
       sb.append("\n");
-      var cards = tableauRowStream(row).collect(Collectors.toList());
-      for (Card card : cards) {
-        sb.append(card != null ? card.asciiSymbol() : "  ");
-        output |= card != null;
-        sb.append("  ");
-      }
-      sb.delete(sb.lastIndexOf("  "), sb.length());
+      done = tableauRowStream(row)
+          .peek(c -> sb.append(c != null ? c.asciiSymbol() : CRD_SPC).append(COL_SPC))
+          .filter(Objects::isNull).count() == TABLEAU_COLS;
+      sb.delete(sb.lastIndexOf(COL_SPC), sb.length());
     }
     sb.delete(sb.lastIndexOf("\n"), sb.length());
     return sb.toString();
