@@ -2,6 +2,7 @@ package com.carlmastrangelo.freecell;
 
 import static com.carlmastrangelo.freecell.Card.CARDS_BY_ORD;
 import static com.carlmastrangelo.freecell.Card.CARD_COUNT;
+import static com.carlmastrangelo.freecell.Rank.ACE;
 import static com.carlmastrangelo.freecell.Rank.RANK_COUNT;
 import static com.carlmastrangelo.freecell.Suit.SUIT_COUNT;
 
@@ -9,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
@@ -135,8 +137,7 @@ public final class ForkFreeCell implements FreeCell {
   private final int[] tableauRoot;
 
   private ForkFreeCell(byte[] cardIds, int[] tableauRoot) {
-    assert cardIds.length <= 64;
-    assert tableauRoot.length == TABLEAU_COLS;
+    assert validateGame(cardIds, tableauRoot);
     this.cardIds = cardIds;
     this.tableauRoot = tableauRoot;
     if (false && !isSorted()) {
@@ -693,5 +694,83 @@ public final class ForkFreeCell implements FreeCell {
 
   private static boolean isEmpty(byte cardId) {
     return cardId == EMPTY;
+  }
+
+  private static boolean validateGame(byte[] cardIds, int[] tableauRoot) {
+    Objects.requireNonNull(cardIds);
+    BitSet cards = new BitSet();
+    cards.set(0, 52);
+    for (int i = 0; i < HOME_CELLS; i++) {
+      if (isEmpty(cardIds[i])) {
+        continue;
+      }
+      for (byte home = cardIds[i]; ; home--) {
+        Card card = validateCardId(home);
+        clear(cards, home);
+        if (card.rank() == ACE) {
+          break;
+        }
+      }
+    }
+    int empties = 0;
+    for (int i = HOME_CELLS; i < cardIds.length; i++) {
+      if (isEmpty(cardIds[i])) {
+        empties++;
+      } else {
+        clear(cards, cardIds[i]);
+      }
+    }
+    if (empties != TABLEAU_COLS) {
+      throw new IllegalArgumentException("bad number of column roots " + empties);
+    }
+    if (!cards.isEmpty()) {
+      throw new IllegalArgumentException("missing cards "
+          + cards.stream().mapToObj(CARDS_BY_ORD::get).collect(Collectors.toList()));
+    }
+    Objects.requireNonNull(tableauRoot);
+    BitSet roots = new BitSet();
+    roots.set(0, TABLEAU_COLS);
+    if (tableauRoot.length != TABLEAU_COLS) {
+      throw new IllegalArgumentException("bad number of tableau column roots " + tableauRoot.length);
+    }
+    for (int i = 0; i < tableauRoot.length; i++) {
+      int root = tableauRoot[i];
+      if (root < HOME_CELLS || root >= cardIds.length) {
+        throw new ArrayIndexOutOfBoundsException("column root " + root + " out of bounds ");
+      }
+      if (!isEmpty(cardIds[root])) {
+        throw new IllegalArgumentException("column root " + root + "points to non-empty card " + cardIds[root]);
+      }
+      if (!roots.get(i)) {
+        throw new IllegalArgumentException("duplicate column root " + root);
+      }
+      roots.clear(i);
+    }
+    if (tableauRoot[0] - HOME_CELLS > FREE_CELLS) {
+      throw new IllegalArgumentException("too many free cells");
+    }
+    return roots.isEmpty();
+  }
+
+  private static void clear(BitSet set, byte cardId) {
+    if (isEmpty(cardId)) {
+      throw new IllegalArgumentException("empty card " + cardId);
+    }
+    Card card = validateCardId(cardId);
+    if (!set.get(card.ordinal())) {
+      throw new IllegalArgumentException("card already used (" + cardId + ") " + card);
+    }
+    set.clear(card.ordinal());
+  }
+
+  private static Card validateCardId(byte cardId) {
+    if (cardId < 0 || cardId >= ALL_CARDS_ID.length) {
+      throw new IllegalArgumentException("bad card " + cardId);
+    }
+    Card card = ALL_CARDS_ID[cardId];
+    if (card == null) {
+      throw new IllegalArgumentException("bad card " + cardId);
+    }
+    return card;
   }
 }
