@@ -7,13 +7,11 @@ import static com.carlmastrangelo.freecell.Rank.RANK_COUNT;
 import static com.carlmastrangelo.freecell.Suit.SUIT_COUNT;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -285,11 +283,6 @@ public final class ForkFreeCell implements FreeCell {
     cardIds[pos] = cardId;
   }
 
-  public boolean tableauEmpty(int tableauCol) {
-    assert tabTop(tableauCol) >= tabRoot(tableauCol);
-    return tabTop(tableauCol) == tabRoot(tableauCol);
-  }
-
   @Override
   @Nullable
   public Card peekTableau(int tableauCol) {
@@ -356,7 +349,6 @@ public final class ForkFreeCell implements FreeCell {
     return new ForkFreeCell(newCardIds, newTableauRoot);
   }
 
-  @Override
   public boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
     assert dstTableauCol >= 0 && dstTableauCol < TABLEAU_COLS;
     assert srcTableauCol >= 0 && srcTableauCol < TABLEAU_COLS;
@@ -447,20 +439,59 @@ public final class ForkFreeCell implements FreeCell {
   }
 
   @Override
-  public Spliterator<Card> readTableau(int tableauCol) {
+  public Spliterator<Card> tableauColSpliterator(int tableauCol) {
     var top = tabTop(tableauCol);
     var root = tabRoot(tableauCol);
 
-    return new Spliterators.AbstractSpliterator<>(top - root,
-        Spliterator.DISTINCT | Spliterator.ORDERED | Spliterator.SIZED | Spliterator.NONNULL | Spliterator.IMMUTABLE | Spliterator.SUBSIZED) {
+    return new Spliterators.AbstractSpliterator<>(
+        top - root,
+        Spliterator.DISTINCT | Spliterator.ORDERED | Spliterator.SIZED | Spliterator.NONNULL | Spliterator.IMMUTABLE
+            | Spliterator.SUBSIZED) {
+
+      int pos = root + 1;
+
       @Override
-      public boolean tryAdvance(Consumer<? super Card> action) {
-        return false;
+      public void forEachRemaining(Consumer<? super Card> action) {
+        for (; pos <= top; pos++) {
+          action.accept(ALL_CARDS_ID[cardIds[pos]]);
+        }
       }
 
       @Override
-      public Spliterator<Card> trySplit() {
-        return super.trySplit();
+      public boolean tryAdvance(Consumer<? super Card> action) {
+        if (pos > top) {
+          return false;
+        }
+        action.accept(ALL_CARDS_ID[cardIds[pos++]]);
+        return true;
+      }
+    };
+  }
+
+  @Override
+  public Spliterator<Card> tableauRowSpliterator(int tableauRow) {
+    return new Spliterators.AbstractSpliterator<>(
+        TABLEAU_COLS,
+        Spliterator.DISTINCT | Spliterator.SIZED | Spliterator.ORDERED | Spliterator.IMMUTABLE | Spliterator.SUBSIZED) {
+
+      int tableauCol;
+
+      @Override
+      public boolean tryAdvance(Consumer<? super Card> action) {
+        if (tableauCol >= TABLEAU_COLS) {
+          return false;
+        }
+        var root = tabRoot(tableauCol);
+        var top = tabTop(tableauCol);
+        tableauCol++;
+        int pos = root + 1 + tableauRow;
+        if (pos > top) {
+          action.accept(null);
+        } else {
+          action.accept(ALL_CARDS_ID[cardIds[pos]]);
+        }
+
+        return true;
       }
     };
   }
@@ -517,38 +548,31 @@ public final class ForkFreeCell implements FreeCell {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    int pos = 0;
-    byte cardId;
-    for (;pos < HOME_CELLS; pos++) {
-      sb.append("  ").append((cardId = cardIds[pos]) == EMPTY ? "  " : ALL_CARDS_ID[cardId]);
+    for (Suit suit : Suit.SUITS_BY_ORD) {
+      Card card = topHomeCell(suit);
+      sb.append(card != null ? card.asciiSymbol() : "  ").append("  ");
     }
+    sb.delete(sb.lastIndexOf("  "), sb.length());
     sb.append("||");
-    while((cardId = cardIds[pos]) != EMPTY) {
-      sb.append("  ").append(ALL_CARDS_ID[cardId]);
-      pos++;
+    for (int i = 0; i < FREE_CELLS; i++) {
+      Card card = peekFreeCell(i);
+      sb.append(card != null ? card.asciiSymbol() : "  ").append("  ");
     }
+    sb.delete(sb.lastIndexOf("  "), sb.length());
 
-    List<Deque<Card>> cols = new ArrayList<>();
-    for (int col = 0; col < TABLEAU_COLS; col++) {
-      cols.add(getCol(col));
-    }
-    boolean output;
-    do {
+    boolean output = true;
+    for (int row = 0; output; row++) {
       output = false;
       sb.append("\n");
-      for (int col = 0; col < TABLEAU_COLS; col++) {
+      var cards = tableauRowStream(row).collect(Collectors.toList());
+      for (Card card : cards) {
+        sb.append(card != null ? card.asciiSymbol() : "  ");
+        output |= card != null;
         sb.append("  ");
-        Card card;
-        if ((card = cols.get(col).pollLast()) == null) {
-          sb.append("  ");
-        } else {
-          output = true;
-          sb.append(card);
-        }
       }
-    } while(output);
-    sb.delete(sb.lastIndexOf("\n"), sb.length() -1);
-
+      sb.delete(sb.lastIndexOf("  "), sb.length());
+    }
+    sb.delete(sb.lastIndexOf("\n"), sb.length());
     return sb.toString();
   }
 
@@ -597,16 +621,6 @@ public final class ForkFreeCell implements FreeCell {
       cards.set(i - 1, c2);
       cards.set(pos, c1);
     }
-  }
-
-  private Deque<Card> getCol(int col) {
-    Deque<Card> cards = new ArrayDeque<>();
-    int pos = tabTop(col);
-    byte cardId;
-    while ((cardId = cardIds[pos--]) != EMPTY) {
-      cards.addLast(CARDS_BY_ORD.get(cardOrd(cardId)));
-    }
-    return cards;
   }
 
   /**

@@ -3,8 +3,8 @@ package com.carlmastrangelo.freecell;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 public sealed interface FreeCell permits ForkFreeCell {
@@ -32,15 +32,7 @@ public sealed interface FreeCell permits ForkFreeCell {
   @Nullable
   Card peekFreeCell(int freeCol);
 
-  default FreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
-    return moveToTableauFromTableau(dstTableauCol, srcTableauCol, 1);
-  }
-
   FreeCell moveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count);
-
-  default boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol) {
-    return canMoveToTableauFromTableau(dstTableauCol, srcTableauCol, 1);
-  }
 
   boolean canMoveToTableauFromTableau(int dstTableauCol, int srcTableauCol, int count);
 
@@ -75,6 +67,15 @@ public sealed interface FreeCell permits ForkFreeCell {
   @Nullable
   Card topHomeCell(Suit suit);
 
+  Spliterator<Card> tableauColSpliterator(int tableauCol);
 
-  Spliterator<Card> readTableau(int tableauCol);
+  Spliterator<Card> tableauRowSpliterator(int tableauRow);
+
+  default Stream<Card> tableauColStream(int tableauCol) {
+    return StreamSupport.stream(tableauColSpliterator(tableauCol), false);
+  }
+
+  default Stream<Card> tableauRowStream(int tableauRow) {
+    return StreamSupport.stream(tableauRowSpliterator(tableauRow), false);
+  }
 }

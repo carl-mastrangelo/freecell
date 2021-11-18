@@ -9,9 +9,11 @@ import com.google.common.truth.Truth;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -115,6 +117,8 @@ public class ForkFreeCellTest {
   public void moveToTableauCellFromTableau() {
     ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(3));
     System.out.println(game.toString());
+
+    var out = StreamSupport.stream(game.tableauColSpliterator(6), false).collect(Collectors.toList());
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToTableauFromTableau(0, 1, 2);

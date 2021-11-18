@@ -117,6 +117,10 @@ public enum Card {
     return symbol;
   }
 
+  public String asciiSymbol() {
+    return asciiSymbol;
+  }
+
   @Nullable
   public Card upperRank() {
     if (rank().upper() == null) {
