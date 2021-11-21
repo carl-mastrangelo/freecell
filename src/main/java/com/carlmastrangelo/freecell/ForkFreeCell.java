@@ -495,12 +495,7 @@ public final class ForkFreeCell implements FreeCell {
         var top = tabTop(tableauCol);
         tableauCol++;
         int pos = root + 1 + tableauRow;
-        if (pos > top) {
-          action.accept(null);
-        } else {
-          action.accept(ALL_CARDS_ID[cardIds[pos]]);
-        }
-
+        action.accept(pos <= top ? ALL_CARDS_ID[cardIds[pos]] : null);
         return true;
       }
     };

@@ -368,13 +368,13 @@ public final class GamePlayer {
     int diff = 0;
     for (int i = 0; i < FREE_CELLS; i++) {
       if (game.peekFreeCell(i) == null) {
-        sum += 0.05;
+        sum += 0.1;
       }
     }
     for (int col = 0; col < FreeCell.TABLEAU_COLS; col++) {
       game.readTableau(column, col);
       if (column.isEmpty()) {
-        sum += 0.05;
+        sum += .5;
       }
       while (!column.isEmpty()) {
         Card card = column.removeFirst();
