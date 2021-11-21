@@ -2,8 +2,10 @@ package com.carlmastrangelo.freecell;
 
 import static com.carlmastrangelo.freecell.ForkFreeCell.EMPTY;
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.truth.Truth;
 import java.util.Arrays;
@@ -141,38 +143,31 @@ public class ForkFreeCellTest {
 
   @Test
   public void moveToTableauCellFromFree() {
-    ForkFreeCell game = ForkFreeCell.dealDeck(new SplittableRandom(4));
-    System.out.println(game.toString());
-
-    assertTrue(game.canMoveToFreeCellFromTableau(0));
-
-    game = game.moveToFreeCellFromTableau(0);
-    System.out.println(game.toString());
-
-    assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToFreeCellFromTableau(0);
-    System.out.println(game.toString());
-
-    assertTrue(game.canMoveToFreeCellFromTableau(0));
-    game = game.moveToFreeCellFromTableau(0);
-    System.out.println(game.toString());
+    ForkFreeCell game = ForkFreeCell.parse("""
+                          |                 \s
+        TS   TD   6D   6H   5S   3D   8S   KD
+        AS   9H   QS   4H   4S   4D   AH   JS
+        JD   JH   5C   QD   9D   AC   7C   KS
+        2S   3S   5H   6C   2D   TH   AD   7S
+        6S   QC   5D   4C   8C   QH   7D   KC
+        3H   JC   2H   8D   7H   2C   KH   TC
+        9C   8H   3C   9S                   \s
+        """);
 
     assertTrue(game.canMoveToFreeCellFromTableau(0));
     game = game.moveToFreeCellFromTableau(0);
-    System.out.println(game);
+
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
+    game = game.moveToFreeCellFromTableau(0);
+
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
+    game = game.moveToFreeCellFromTableau(0);
+
+    assertTrue(game.canMoveToFreeCellFromTableau(0));
+    game = game.moveToFreeCellFromTableau(0);
 
     assertFalse(game.canMoveToFreeCellFromTableau(0));
-
-    game = game.moveToHomeCellFromTableau(0);
-    System.out.println(game);
-
-    assertTrue(game.canMoveToTableauFromFreeCell(0, 0));
-    System.out.println(game);
-
-    game = game.moveToTableauFromFreeCell(0, 0);
-    System.out.println(game);
   }
-
 
   @Test
   public void insertFreeCard_smaller() {
@@ -196,37 +191,17 @@ public class ForkFreeCellTest {
   }
 
   @Test
-  public void par() {
-    String d = """
-                🂺         ||
-           🂺  🃘  🃉  🃃 __  🂸  🂶  🂧
-            🂽  🃎  🃈  🂦  __  🂴  🃂  🂭
-            🂱  🂵  🂪  🃊  __  🃗  🃇  🃑
-            🂥  🂷  🃒  🂤  __  🂲  🂡  🂣
-            🂹  🃚  🃅  🃛 __  🃔  🂻  🂨
-            🂫  🃙  🃋  🃞  __  🃕  🂳  🂾
-            🃁  🂢  🃆  🃖                
-           """;
-    parse(d);
+  public void parse() {
+    String board = """
+      9C   9D   8H   9S | QS   9H   KD
+                KH        JH   QH   KS   KC
+                QC        TC   JS        QD
+                JD             TH        JC
+                TS                       TD
+                  """;
+    var parsed = ForkFreeCell.parse(board);
+
+    var reparsed = ForkFreeCell.parse(parsed.toString());
+    assertEquals(parsed, reparsed);
   }
-
-  static ForkFreeCell parse(String board) {
-    Scanner scanner = new Scanner(board);
-    String header = scanner.nextLine();
-    int pipes = header.indexOf("||");
-    if (pipes == -1) {
-      throw new IllegalArgumentException();
-    }
-   var homeCards =
-       Arrays.stream(header.substring(0, pipes).split("\s+"))
-           .filter(s -> !s.isEmpty()).map(Card::ofSymbol).collect(Collectors.toList());
-    var freeCards =
-        Arrays.stream(header.substring(pipes + 2).split("\s+"))
-            .filter(s -> !s.isEmpty()).map(Card::ofSymbol).collect(Collectors.toList());
-
-    return null;
-  }
-
-
-
 }

@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -73,7 +74,7 @@ public final class ForkFreeCell implements FreeCell {
       cardIds[suitOrd(cardId)] = cardId;
     }
     int pos = HOME_CELLS;
-    freeCells = freeCells.stream().sorted().collect(Collectors.toList());
+    freeCells = freeCells.stream().sorted(Comparator.<Card>naturalOrder().reversed()).collect(Collectors.toList());
     for (Card card : freeCells) {
       checkRemove(allCards, card);
       cardIds[pos++] = cardId(card);
@@ -550,10 +551,11 @@ public final class ForkFreeCell implements FreeCell {
     }
   }
 
+  private static final String CRD_SPC = "  ";
+  private static final String COL_SPC = "   ";
+
   @Override
   public String toString() {
-    final String CRD_SPC = "  ";
-    final String COL_SPC = "   ";
     StringBuilder sb = new StringBuilder();
     for (Suit suit : Suit.SUITS_BY_ORD) {
       Card card = topHomeCell(suit);
@@ -577,6 +579,40 @@ public final class ForkFreeCell implements FreeCell {
     }
     sb.delete(sb.lastIndexOf("\n"), sb.length());
     return sb.toString();
+  }
+
+  public static ForkFreeCell parse(String s) {
+    Scanner sc = new Scanner(s);
+    String header = sc.nextLine();
+    int pipeIdx = header.indexOf('|');
+    List<Card> homeCards = Arrays.stream(header.substring(0, pipeIdx).split("\s+"))
+        .filter(c -> !c.isEmpty())
+        .filter(c -> !c.isBlank())
+        .map(Card::ofSymbol)
+        .collect(Collectors.toList());
+    List<Card> freeCards = Arrays.stream(header.substring(pipeIdx + 1).split("\s+"))
+        .filter(c -> !c.isEmpty())
+        .filter(c -> !c.isBlank())
+        .map(Card::ofSymbol)
+        .collect(Collectors.toList());
+    List<Card> tableauCards = new ArrayList<>();
+    while (sc.hasNextLine()) {
+      String tableauRow = sc.nextLine();
+      if (tableauRow.isEmpty() || tableauRow.isBlank()) {
+        continue;
+      }
+      int spaceChars = 0;
+      for (int i = 0; i < TABLEAU_COLS; i++) {
+        String card = tableauRow.substring(i * 2 + spaceChars, (i + 1) * 2 + spaceChars);
+        spaceChars += COL_SPC.length();
+        if (card.isBlank()) {
+          tableauCards.add(null);
+        } else {
+          tableauCards.add(Card.ofSymbol(card));
+        }
+      }
+    }
+    return dealDeck(homeCards, freeCards, tableauCards);
   }
 
   @Override
