@@ -1,11 +1,13 @@
-package com.carlmastrangelo.freecell;
+package com.carlmastrangelo.freecell.coder;
 
-import static com.carlmastrangelo.freecell.BoardCoder.decodeFibonacci;
-import static com.carlmastrangelo.freecell.BoardCoder.decodeZigZag;
-import static com.carlmastrangelo.freecell.BoardCoder.fibonacciEncode;
-import static com.carlmastrangelo.freecell.BoardCoder.encodeZigZag;
+import static com.carlmastrangelo.freecell.coder.BoardCoder.decodeFibonacci;
+import static com.carlmastrangelo.freecell.coder.BoardCoder.decodeZigZag;
+import static com.carlmastrangelo.freecell.coder.BoardCoder.fibonacciEncode;
+import static com.carlmastrangelo.freecell.coder.BoardCoder.encodeZigZag;
 import static org.junit.Assert.assertEquals;
 
+import java.util.List;
+import java.util.Map;
 import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 import org.junit.Test;
@@ -58,6 +60,16 @@ public class BoardEncoderTest {
       int value = rand.nextInt();
       assertEquals("failed with seed " + seed, value, decodeZigZag(encodeZigZag(value)));
     }
+  }
+
+  @Test
+  public void buildSymbolProbabilities_doubles() {
+    var probs = BoardCoder.buildSymbolRanges(
+        List.of(
+            new BoardCoder.SymbolProbability<>("a", 0.5),
+            new BoardCoder.SymbolProbability<>("b", 0.4),
+            new BoardCoder.SymbolProbability<>("c", 0.1)));
+    
   }
 
 

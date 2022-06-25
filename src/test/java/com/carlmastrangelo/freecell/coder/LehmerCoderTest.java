@@ -1,16 +1,16 @@
-package com.carlmastrangelo.freecell;
+package com.carlmastrangelo.freecell.coder;
 
 import static com.carlmastrangelo.freecell.Card.CARDS_BY_ORD;
 import static com.carlmastrangelo.freecell.Card.CARD_COUNT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
+import com.carlmastrangelo.freecell.Card;
+import com.carlmastrangelo.freecell.coder.LehmerCoder;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Random;
-import java.util.random.RandomGenerator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

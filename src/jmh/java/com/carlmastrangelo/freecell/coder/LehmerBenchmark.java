@@ -1,9 +1,11 @@
-package com.carlmastrangelo.freecell;
+package com.carlmastrangelo.freecell.coder;
 
 
 import static com.carlmastrangelo.freecell.Card.CARDS_BY_ORD;
 import static com.carlmastrangelo.freecell.Card.CARD_COUNT;
 
+import com.carlmastrangelo.freecell.Card;
+import com.carlmastrangelo.freecell.LehmerCoder;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;

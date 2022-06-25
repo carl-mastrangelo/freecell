@@ -1,4 +1,4 @@
-package com.carlmastrangelo.freecell;
+package com.carlmastrangelo.freecell.coder;
 
 import static com.carlmastrangelo.freecell.Card.CARDS_BY_ORD;
 
