@@ -8,10 +8,10 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 public enum Suit {
-  CLUBS("\u2667", "C", Color.BLACK),
-  DIAMONDS("\u2662", "D", Color.RED),
-  HEARTS("\u2661", "H", Color.RED),
-  SPADES("\u2664", "S", Color.BLACK),
+  CLUBS(1, "\u2667", "C", Color.BLACK),
+  DIAMONDS(2, "\u2662", "D", Color.RED),
+  HEARTS(3, "\u2661", "H", Color.RED),
+  SPADES(4, "\u2664", "S", Color.BLACK),
   ;
 
   public static final int SUIT_COUNT = 4;
@@ -29,11 +29,13 @@ public enum Suit {
     SUITS_BY_SYMBOL = Collections.unmodifiableMap(suitMap);
   }
 
+  private final int num;
   private final String symbol;
   private final String asciiSymbol;
   private final Color color;
 
-  Suit(String symbol, String altSymbol, Color color) {
+  Suit(int num, String symbol, String altSymbol, Color color) {
+    this.num = num;
     this.symbol = symbol;
     this.asciiSymbol = altSymbol;
     this.color = color;
@@ -62,6 +64,10 @@ public enum Suit {
 
   public Color color() {
     return color;
+  }
+
+  public int num() {
+    return num;
   }
 
   @Nullable
