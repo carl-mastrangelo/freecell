@@ -100,21 +100,40 @@ final class ArithmeticCoder {
     while (true) {
       var lowBit = lowReader.readBit();
       var highBit = highReader.readBit();
+      if (lowBit != highBit) {
+        assert !lowBit;
+        break;
+      }
       if (lowBit) {
         bs.set(wpos);
       }
       wpos++;
-      if (lowBit != highBit) {
+    }
+
+    BitSet lowBranch = new BitSet();
+    BitSet highBranch = new BitSet();
+    highBranch.set(0);
+    int branchIndex = 0;
+    BitSet winner;
+    while (true) {
+      branchIndex++;
+      var lowBit = lowReader.readBit();
+      var highBit = highReader.readBit();
+      lowBranch.set(branchIndex);
+      if (!lowBit) {
+        winner = lowBranch;
+        break;
+      }
+      if (highBit) {
+        winner = highBranch;
         break;
       }
     }
-
-    while (true) {
-      var lowBit = lowReader.readBit();
-      bs.set(wpos++);
-      if (!lowBit) {
-        break;
+    for (int i = 0; i <= branchIndex; i++) {
+      if (winner.get(i)) {
+        bs.set(wpos);
       }
+      wpos++;
     }
 
     return new BitString(bs, wpos);

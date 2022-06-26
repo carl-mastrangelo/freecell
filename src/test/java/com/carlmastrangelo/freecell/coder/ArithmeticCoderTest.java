@@ -28,16 +28,19 @@ public class ArithmeticCoderTest {
   @Test
   public void arithmeticEncode_workflow() {
     var symbolRanges =
-        ArithmeticCoder.convertProbabilityMap(new TreeMap<>(Map.of("a", 0.5, "b", 0.375, "c", .125)));
+        ArithmeticCoder.convertProbabilityMap(new TreeMap<>(Map.of("a", .5, "b", .45, "c", .05)));
 
-    int expected = 100;
-    RandomGenerator rng = new SplittableRandom();
+    var seed = new SplittableRandom().nextLong();
+    //seed = 364570638067155961L;
+    System.out.println(seed);
+    int expected = 7;
+    RandomGenerator rng = new SplittableRandom(seed);
     List<String> vals = new ArrayList<>();
     for (int i = 0; i < expected; i++) {
       var rand = rng.nextDouble();
       if (rand < .5) {
         vals.add("a");
-      } else if (rand < .875) {
+      } else if (rand < .95) {
         vals.add("b");
       } else {
         vals.add("c");
@@ -49,7 +52,7 @@ public class ArithmeticCoderTest {
     var decoder = new ArithmeticCoder.Decoder<>(symbolRanges);
 
     var decode = new ArrayList<String>();
-    int top = code.bs().previousSetBit(Integer.MAX_VALUE);
+    int top = code.bitsUsed();
     for (int pos = 0; pos <= top; pos++) {
       decoder.acceptBit(decode::add, code.bs().get(pos));
     }
