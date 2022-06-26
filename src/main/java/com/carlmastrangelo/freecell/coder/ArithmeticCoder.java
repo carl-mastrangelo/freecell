@@ -1,60 +1,166 @@
 package com.carlmastrangelo.freecell.coder;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 final class ArithmeticCoder {
 
-  <T> BitSet arithmeticEncode(List<T> symbols, SortedMap<T, ? extends Number> probabilities) {
+
+
+
+  static <T> BitString arithmeticEncode(List<T> symbols, SortedMap<T, ? extends Number> probabilities) {
     List<SymbolProbability<T, ? extends Number>> symbolProbabilities =
         probabilities.entrySet().stream().map(e -> new SymbolProbability<>(e.getKey(), e.getValue()))
             .collect(Collectors.toList());
 
     var symbolRanges = buildSymbolRanges(symbolProbabilities);
 
-    List<BigDecimal> lows = new ArrayList<>();
-    List<BigDecimal> highs = new ArrayList<>();
-    lows.add(BigDecimal.ZERO);
-    highs.add(BigDecimal.ONE);
-
-    return new BitSet();
-  }
-
-  record SymbolRanges<T>(List<SymbolRange<T>> symbolProbabilities) {
-    SymbolRanges {
-      symbolProbabilities = validate(symbolProbabilities);
+    // Core Encoding loop
+    BigDecimal low = BigDecimal.ZERO;
+    BigDecimal high = BigDecimal.ONE;
+    for (T symbol : symbols) {
+      BigDecimal oldRange = high.subtract(low);
+      ProbabilityRange symRange = symbolRanges.rangeFor(symbol);
+      BigDecimal newLow = low.add(oldRange.multiply(symRange.low()));
+      BigDecimal newHigh = low.add(oldRange.multiply(symRange.high()));
+      low = newLow;
+      high = newHigh;
     }
 
-    static <T> List<SymbolRange<T>> validate(List<SymbolRange<T>> symbolProbabilities) {
+    return encodeArithmetic(low, high);
+  }
+
+
+  static BitString encodeArithmetic(BigDecimal low, BigDecimal high) {
+    var bs = new BitSet();
+    int wpos = 0; // where in the bitset are we writing to next
+
+    var lowReader = new BitReader(low);
+    var highReader = new BitReader(high);
+
+    // This code proceeds in 4 steps.
+    // A.  Copy over the bits that are the same.
+    // B.  Copy over the very first bit that is different.
+    // C.  Copy over each bit that is a consecutive 1
+    // D.  Copy over a 1 at the first 0.
+    // Example:
+    // Low:  1 0 1 1 0 1 1 0 1 1 0 1 0 1 1
+    // High: 1 0 1 1 0 1 1 1 0 1 0 1 1 0 1
+    //       A A A A A A A B C C D _ _ _ _
+    // Res:  1 0 1 1 0 1 1 0 1 1 1 _ _ _ _
+
+    while (true) {
+      var lowBit = lowReader.readBit();
+      var highBit = highReader.readBit();
+      if (lowBit) {
+        bs.set(wpos);
+      }
+      wpos++;
+      if (lowBit != highBit) {
+        break;
+      }
+    }
+
+    while (true) {
+      var lowBit = lowReader.readBit();
+      bs.set(wpos++);
+      if (!lowBit) {
+        break;
+      }
+    }
+
+    return new BitString(bs, wpos);
+  }
+
+
+  private static final class BitReader {
+    private static final int BITS_PER_CHUNK = 3;
+    private static final BigDecimal CHUNK_FACTOR = new BigDecimal("2").pow(BITS_PER_CHUNK);
+
+    private BigDecimal num;
+    private final boolean numIsOne;
+    private long chunk;
+    private int chunkBitsLeft;
+
+    BitReader(BigDecimal num) {
+      this.num = Objects.requireNonNull(num);
+      int cmp = num.compareTo(BigDecimal.ONE);
+      numIsOne = cmp == 0;
+      if (cmp > 0) {
+        throw new IllegalArgumentException();
+      }
+      if (num.compareTo(BigDecimal.ZERO) < 0) {
+        throw new IllegalArgumentException();
+      }
+    }
+
+    /**
+     * Reads a single big Endian Bit from this number.
+     */
+    boolean readBit() {
+      if (numIsOne) {
+        return true;
+      }
+      if (chunkBitsLeft == 0) {
+        BigDecimal[] chunkAndNum = num.multiply(CHUNK_FACTOR).divideAndRemainder(BigDecimal.ONE);
+        num = chunkAndNum[1];
+        chunk = chunkAndNum[0].longValueExact();
+        chunkBitsLeft = BITS_PER_CHUNK;
+      }
+      long mask = 1L << (--chunkBitsLeft);
+      return (chunk & mask) != 0;
+    }
+  }
+
+  record BitString(BitSet bs, int bitsUsed) {}
+
+  record SymbolRanges<T>(List<SymbolRange<T>> symbolRanges) {
+    SymbolRanges {
+      symbolRanges = validate(symbolRanges);
+    }
+
+    ProbabilityRange rangeFor(T symbol) {
+      Objects.requireNonNull(symbol);
+      // Haha computer go BRRRR
+      for (var symRange : symbolRanges) {
+        if (symbol.equals(symRange.symbol())) {
+          return symRange.probabilityRange();
+        }
+      }
+      throw new NoSuchElementException();
+    }
+
+    static <T> List<SymbolRange<T>> validate(List<SymbolRange<T>> symbolRanges) {
       // performs null checks implicitly
-      symbolProbabilities = List.copyOf(symbolProbabilities);
-      if (symbolProbabilities.isEmpty()) {
+      symbolRanges = List.copyOf(symbolRanges);
+      if (symbolRanges.isEmpty()) {
         throw new IllegalArgumentException("Empty Probabilities");
       }
-      if (symbolProbabilities.get(0).probabilityRange().low().compareTo(BigDecimal.ZERO) != 0) {
+      if (symbolRanges.get(0).probabilityRange().low().compareTo(BigDecimal.ZERO) != 0) {
         throw new IllegalArgumentException("Minimum probability not 0");
       }
-      var lastRange = symbolProbabilities.get(symbolProbabilities.size() - 1);
+      var lastRange = symbolRanges.get(symbolRanges.size() - 1);
       if (lastRange.probabilityRange().high().compareTo(BigDecimal.ONE) != 0) {
         throw new IllegalArgumentException("Cumulative Probability not 1");
       }
-      for (int i = 0; i < symbolProbabilities.size() - 1; i++) {
-        if (symbolProbabilities.get(i).probabilityRange().high()
-            .compareTo(symbolProbabilities.get(i + 1).probabilityRange().low()) != 0) {
+      for (int i = 0; i < symbolRanges.size() - 1; i++) {
+        if (symbolRanges.get(i).probabilityRange().high()
+            .compareTo(symbolRanges.get(i + 1).probabilityRange().low()) != 0) {
           throw new IllegalArgumentException("Probability orderings don't properly overlap");
         }
       }
-      if (symbolProbabilities.stream().map(SymbolRange::symbol).collect(Collectors.toSet()).size()
-          != symbolProbabilities.size()) {
+      if (symbolRanges.stream().map(SymbolRange::symbol).collect(Collectors.toSet()).size() != symbolRanges.size()) {
         throw new IllegalArgumentException("Non-unique symbols in probability list");
       }
-      return symbolProbabilities;
+      return symbolRanges;
     }
   }
 
