@@ -17,8 +17,8 @@ final class ArithmeticCoder {
   static final class Decoder<T> {
     private final SymbolRanges<T> symbolRanges;
     private int posExp;
-    private BigDecimal offsetLow = BigDecimal.ZERO;
-    private BigDecimal offsetHigh = BigDecimal.ONE;
+    private BigDecimal offset = BigDecimal.ZERO;
+    private BigDecimal range = BigDecimal.ONE;
     private BigDecimal decoded = BigDecimal.ZERO;
 
     Decoder(SymbolRanges<T> symbolRanges) {
@@ -31,16 +31,19 @@ final class ArithmeticCoder {
       if (bit) {
         decoded = decoded.add(toAdd);
       }
-      for (var symRange : symbolRanges.symbolRanges()) {
-        if (decoded.compareTo(symRange.probabilityRange().low()) >= 0) {
-          if (decoded.add(toAdd).compareTo(symRange.probabilityRange().high()) < 0) {
+      BigDecimal decodedUpper = decoded.add(toAdd);
+      outer: while (true) {
+        for (var symRange : symbolRanges.symbolRanges()) {
+          BigDecimal symLow = symRange.probabilityRange().low().multiply(range).add(offset);
+          BigDecimal symHigh = symRange.probabilityRange().high().multiply(range).add(offset);
+          if (decoded.compareTo(symLow) >= 0 && decodedUpper.compareTo(symHigh) < 0) {
             output.accept(symRange.symbol());
-            decoded = decoded.subtract(symRange.probabilityRange().low());
-            decoded = decoded.multiply(symRange.probabilityRange().high().subtract(symRange.probabilityRange().low()));
-            posExp = 0;
-            break;
+            offset = symLow;
+            range = symHigh.subtract(symLow);
+            continue outer;
           }
         }
+        return;
       }
     }
   }
