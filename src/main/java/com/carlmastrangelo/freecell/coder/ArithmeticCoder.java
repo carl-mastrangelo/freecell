@@ -106,6 +106,7 @@ final class ArithmeticCoder {
      * Reads a single big Endian Bit from this number.
      */
     boolean readBit() {
+      // If ever there was a useful end to the 1.0 != 0.999999999999999 argument, this is it.
       if (numIsOne) {
         return true;
       }
