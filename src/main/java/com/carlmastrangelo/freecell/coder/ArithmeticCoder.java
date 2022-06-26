@@ -122,7 +122,7 @@ final class ArithmeticCoder {
 
 
   private static final class BitReader {
-    private static final int BITS_PER_CHUNK = 3;
+    private static final int BITS_PER_CHUNK = 63;
     private static final BigDecimal CHUNK_FACTOR = new BigDecimal("2").pow(BITS_PER_CHUNK);
 
     private BigDecimal num;
