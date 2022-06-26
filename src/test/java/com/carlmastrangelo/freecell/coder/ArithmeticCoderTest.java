@@ -1,5 +1,6 @@
 package com.carlmastrangelo.freecell.coder;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -21,8 +22,18 @@ public class ArithmeticCoderTest {
 
   @Test
   public void arithmeticEncode_workflow() {
-    var code = ArithmeticCoder.arithmeticEncode(
-        List.of("a", "a", "b", "a", "c"),
-        new TreeMap<>(Map.of("a", 0.5, "b", 0.375, "c", .125)));
+    var symbolRanges = ArithmeticCoder.convertProbabilityMap(new TreeMap<>(Map.of("a", 0.5, "b", 0.375, "c", .125)));
+    var code = ArithmeticCoder.arithmeticEncode(List.of("a", "a", "b", "a", "c"), symbolRanges);
+
+    var decoder = new ArithmeticCoder.Decoder<>(symbolRanges);
+
+    var decode = new ArrayList<String>();
+
+    for (int pos = 0; decode.size() < 5; pos++) {
+      decoder.acceptBit(symb -> {
+        System.out.println(symb);
+        decode.add(symb);
+      }, code.bs().get(pos));
+    }
   }
 }

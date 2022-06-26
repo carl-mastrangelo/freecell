@@ -9,20 +9,54 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.SortedMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 final class ArithmeticCoder {
 
+  static final class Decoder<T> {
+    private final SymbolRanges<T> symbolRanges;
+    private int posExp;
+    private BigDecimal offsetLow = BigDecimal.ZERO;
+    private BigDecimal offsetHigh = BigDecimal.ONE;
+    private BigDecimal decoded = BigDecimal.ZERO;
 
+    Decoder(SymbolRanges<T> symbolRanges) {
+      this.symbolRanges = Objects.requireNonNull(symbolRanges);
+    }
 
+    void acceptBit(Consumer<? super T> output, boolean bit) {
+      ++posExp;
+      BigDecimal toAdd = new BigDecimal("2").pow(-posExp, MathContext.DECIMAL128);
+      if (bit) {
+        decoded = decoded.add(toAdd);
+      }
+      for (var symRange : symbolRanges.symbolRanges()) {
+        if (decoded.compareTo(symRange.probabilityRange().low()) >= 0) {
+          if (decoded.add(toAdd).compareTo(symRange.probabilityRange().high()) < 0) {
+            output.accept(symRange.symbol());
+            decoded = decoded.subtract(symRange.probabilityRange().low());
+            decoded = decoded.multiply(symRange.probabilityRange().high().subtract(symRange.probabilityRange().low()));
+            posExp = 0;
+            break;
+          }
+        }
+      }
+    }
+  }
 
   static <T> BitString arithmeticEncode(List<T> symbols, SortedMap<T, ? extends Number> probabilities) {
+    return arithmeticEncode(symbols, convertProbabilityMap(probabilities));
+  }
+
+  static <T> SymbolRanges<T> convertProbabilityMap(SortedMap<T, ? extends Number> probabilities) {
     List<SymbolProbability<T, ? extends Number>> symbolProbabilities =
         probabilities.entrySet().stream().map(e -> new SymbolProbability<>(e.getKey(), e.getValue()))
             .collect(Collectors.toList());
+    return buildSymbolRanges(symbolProbabilities);
+  }
 
-    var symbolRanges = buildSymbolRanges(symbolProbabilities);
-
+  static <T> BitString arithmeticEncode(List<T> symbols, SymbolRanges<T> symbolRanges) {
     // Core Encoding loop
     BigDecimal low = BigDecimal.ZERO;
     BigDecimal high = BigDecimal.ONE;
@@ -35,11 +69,11 @@ final class ArithmeticCoder {
       high = newHigh;
     }
 
-    return encodeArithmetic(low, high);
+    return encodeArithmeticRange(low, high);
   }
 
 
-  static BitString encodeArithmetic(BigDecimal low, BigDecimal high) {
+  static BitString encodeArithmeticRange(BigDecimal low, BigDecimal high) {
     var bs = new BitSet();
     int wpos = 0; // where in the bitset are we writing to next
 
