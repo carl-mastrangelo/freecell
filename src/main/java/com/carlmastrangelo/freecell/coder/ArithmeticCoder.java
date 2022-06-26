@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 final class ArithmeticCoder {
 
   static final class Decoder<T> {
+    private static final BigInteger FIVE = new BigInteger("5");
     private final SymbolRanges<T> symbolRanges;
     private int posExp;
     private BigDecimal offset = BigDecimal.ZERO;
@@ -27,7 +28,9 @@ final class ArithmeticCoder {
 
     void acceptBit(Consumer<? super T> output, boolean bit) {
       ++posExp;
-      BigDecimal toAdd = new BigDecimal("2").pow(-posExp, MathContext.DECIMAL128);
+
+      //BigDecimal toAdd = new BigDecimal("2").pow(-posExp, MathContext.DECIMAL128);
+      BigDecimal toAdd = new BigDecimal(FIVE.pow(posExp)).movePointLeft(posExp);
       if (bit) {
         decoded = decoded.add(toAdd);
       }
