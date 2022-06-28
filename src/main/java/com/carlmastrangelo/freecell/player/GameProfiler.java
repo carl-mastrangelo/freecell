@@ -6,15 +6,24 @@ import static com.carlmastrangelo.freecell.FreeCell.TABLEAU_COLS;
 import com.carlmastrangelo.freecell.Card;
 import com.carlmastrangelo.freecell.ForkFreeCell;
 import com.carlmastrangelo.freecell.FreeCell;
+import com.carlmastrangelo.freecell.coder.ArithmeticCoder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.random.RandomGenerator;
 import java.util.random.RandomGeneratorFactory;
+import java.util.stream.Collectors;
 
 public final class GameProfiler {
 
@@ -22,8 +31,8 @@ public final class GameProfiler {
     var rngf = RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of("L64X256MixRandom");
     List<int[]> columnDiffs = new ArrayList<>();
     int gameCount = 10000;
-    int moveCount = 100;
-    int bias = 6;
+    int moveCount = 1000;
+    int bias = 5;
     List<Move> moves = new ArrayList<>();
     for (int i = 0; i < gameCount; i++) {
       Deque<FreeCell> games = new ArrayDeque<>();
@@ -56,7 +65,44 @@ public final class GameProfiler {
       }
     }
 
-    System.out.println(columnDiffs.size());
+
+    SortedMap<Integer, Double> probabilities = new TreeMap<>();
+    double den = 5366163.0;
+    probabilities.put(-5, 1/den);
+    probabilities.put(-4, 1/den);
+    probabilities.put(-3, 26/den);
+    probabilities.put(-2, 679/den);
+    probabilities.put(-1, 48556/den);
+    probabilities.put(0, 3866788/den);
+    probabilities.put(1, 1395384/den);
+    probabilities.put(2, 53784/den);
+    probabilities.put(3, 902/den);
+    probabilities.put(4, 33/den);
+    probabilities.put(5, 1/den);
+    probabilities.put(6, 1/den);
+    probabilities.put(7, 1/den);
+    probabilities.put(8, 1/den);
+    probabilities.put(9, 1/den);
+    probabilities.put(10, 1/den);
+    probabilities.put(11, 1/den);
+    probabilities.put(12, 1/den);
+    probabilities.put(13, 1/den);
+    probabilities.put(14, 1/den);
+
+    Map<Integer, AtomicLong> counts = new ConcurrentSkipListMap<>();
+    columnDiffs.parallelStream().forEach(cd -> {
+      cd[0] = 0;
+      var enc =
+          ArithmeticCoder.arithmeticEncode(
+              Arrays.stream(cd).boxed().collect(Collectors.toList()), probabilities);
+      if (enc.bitsUsed() > 45) {
+        System.out.println("woa");
+      }
+      counts.computeIfAbsent(enc.bitsUsed(), k -> new AtomicLong()).incrementAndGet();
+    });
+
+
+    System.out.println(counts);
     System.out.println(Arrays.toString(diffTotals));
     System.out.println(total);
     System.out.println(total2);

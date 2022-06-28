@@ -3,7 +3,9 @@ package com.carlmastrangelo.freecell.coder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SplittableRandom;
@@ -63,5 +65,11 @@ public class ArithmeticCoderTest {
       decode.remove(decode.size() - 1);
     }
     assertEquals(vals, decode);
+  }
+
+  @Test
+  public void countPossible() {
+    record NumPair(int remaining, int divs) {}
+
   }
 }

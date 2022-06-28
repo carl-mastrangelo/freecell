@@ -12,7 +12,7 @@ import java.util.SortedMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-final class ArithmeticCoder {
+public final class ArithmeticCoder {
 
   static final class Decoder<T> {
     private static final BigInteger FIVE = new BigInteger("5");
@@ -51,7 +51,7 @@ final class ArithmeticCoder {
     }
   }
 
-  static <T> BitString arithmeticEncode(List<T> symbols, SortedMap<T, ? extends Number> probabilities) {
+  public static <T> BitString arithmeticEncode(List<T> symbols, SortedMap<T, ? extends Number> probabilities) {
     return arithmeticEncode(symbols, convertProbabilityMap(probabilities));
   }
 
@@ -180,7 +180,7 @@ final class ArithmeticCoder {
     }
   }
 
-  record BitString(BitSet bs, int bitsUsed) {}
+  public record BitString(BitSet bs, int bitsUsed) {}
 
   record SymbolRanges<T>(List<SymbolRange<T>> symbolRanges) {
     SymbolRanges {
